@@ -56,7 +56,7 @@ object SmsManager {
         val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
         val bankPattern = Pattern.compile("""from\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card)""")
-        val upiPattern = Pattern.compile("""UPI/P2M/(?:[^/]+/)*([^/\s]+)""", Pattern.CASE_INSENSITIVE)
+        val upiPattern = Pattern.compile("""UPI/(?:P2M|P2A)/(?:[^/]+/)*([^/]+)""", Pattern.CASE_INSENSITIVE)
         val accountNumberPattern = Pattern.compile("""A/c no\. ([X*\d]+)""")
         val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2},\s*\d{2}:\d{2}:\d{2})""")
 
@@ -117,6 +117,7 @@ object SmsManager {
         return when {
             lowerMerchant.contains("redbus") -> TransactionCategory.TRAVEL
             lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
+            lowerMessage.contains("upi/p2a") -> TransactionCategory.SPEND_TO_PERSON
 
             listOf("zomato", "swiggy", "restaurant", "cafe", "pizza", "food", "dine").any { lowerMerchant.contains(it) } ->
                 TransactionCategory.FOOD

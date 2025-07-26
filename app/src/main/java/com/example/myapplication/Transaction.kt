@@ -35,5 +35,6 @@ enum class TransactionCategory {
     HEALTH,
     TRANSPORT,
     UPI_TRANSFER,
+    SPEND_TO_PERSON,
     UNKNOWN
 }
