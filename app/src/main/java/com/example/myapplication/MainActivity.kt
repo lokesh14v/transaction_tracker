@@ -1,18 +1,26 @@
 package com.example.myapplication
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.findNavController
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
+import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
-import androidx.navigation.fragment.NavHostFragment
 import com.example.myapplication.databinding.ActivityMainBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+    private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,18 +30,79 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
 
-        val navHostFragment =
-            supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment
-        val navController = navHostFragment.navController
+        val navHostFragment = supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment
+        navController = navHostFragment.navController
         appBarConfiguration = AppBarConfiguration(navController.graph)
         setupActionBarWithNavController(navController, appBarConfiguration)
+
+        binding.viewTransactionsButton.setOnClickListener {
+            navController.navigate(R.id.TransactionListFragment)
+        }
+
+        checkAndRequestPermissions()
+    }
+
+    private fun checkAndRequestPermissions() {
+        val requiredPermissions = listOf(
+            Manifest.permission.READ_SMS,
+            Manifest.permission.RECEIVE_SMS
+        )
+
+        val permissionsToRequest = requiredPermissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                PERMISSION_REQUEST_CODE
+            )
+        } else {
+            syncSmsAndDisplayCounts()
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                syncSmsAndDisplayCounts()
+            } else {
+                println("SMS permissions denied.")
+                // Show a user-facing message if needed
+            }
+        }
+    }
+
+    private fun syncSmsAndDisplayCounts() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            // This method must ensure:
+            // 1. If the app was just installed, fetch all transaction-related SMS.
+            // 2. If already installed before, only fetch NEW ones.
+            // 3. Check for duplicates in the database and avoid reprocessing.
+            val (smsCount, processedTransactions) = SmsManager.syncSms(this@MainActivity)
+
+            runOnUiThread {
+                binding.smsCountTextView.text = "SMS Read: $smsCount"
+                binding.transactionsProcessedTextView.text = "Transactions Processed: $processedTransactions"
+            }
+        }
     }
 
     override fun onSupportNavigateUp(): Boolean {
-        val navHostFragment =
-            supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment
-        val navController = navHostFragment.navController
         return navController.navigateUp(appBarConfiguration)
                 || super.onSupportNavigateUp()
     }
+
+    companion object {
+        private const val PERMISSION_REQUEST_CODE = 100
+    }
 }
+

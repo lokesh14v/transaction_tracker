@@ -28,4 +28,30 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         app:navGraph="@navigation/nav_graph" />
 
+    <TextView
+        android:id="@+id/smsCountTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp"
+        android:text="SMS Read: 0"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/transactionsProcessedTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:text="Transactions Processed: 0"
+        android:textSize="18sp" />
+
+    <Button
+        android:id="@+id/viewTransactionsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="16dp"
+        android:text="View Transactions" />
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

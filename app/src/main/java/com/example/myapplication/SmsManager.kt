@@ -14,18 +14,19 @@ object SmsManager {
 
     private const val TAG = "SmsManager"
 
-    fun syncSms(context: Context) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val smsList = readSms(context)
-            val transactionDao = AppDatabase.getDatabase(context).transactionDao()
-            for (sms in smsList) {
-                if (transactionDao.getTransactionByMessage(sms) == null) {
-                    parseSms(sms)?.let {
-                        transactionDao.insert(it)
-                    }
+    suspend fun syncSms(context: Context): Pair<Int, Int> {
+        var processedTransactions = 0
+        val smsList = readSms(context)
+        val transactionDao = AppDatabase.getDatabase(context).transactionDao()
+        for (sms in smsList) {
+            if (transactionDao.getTransactionByMessage(sms) == null) {
+                parseSms(sms)?.let {
+                    transactionDao.insert(it)
+                    processedTransactions++
                 }
             }
         }
+        return Pair(smsList.size, processedTransactions)
     }
 
     private fun readSms(context: Context): List<String> {
