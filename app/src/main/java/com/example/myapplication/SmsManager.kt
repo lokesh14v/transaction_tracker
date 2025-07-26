@@ -19,39 +19,41 @@ object SmsManager {
 
     suspend fun syncSms(context: Context): Pair<Int, Int> {
         var processedTransactions = 0
-        val smsList = readSms(context)
+        val smsListWithSender = readSms(context)
         val transactionDao = AppDatabase.getDatabase(context).transactionDao()
-        for (sms in smsList) {
-            if (transactionDao.getTransactionByMessage(sms) == null) {
-                parseSms(sms)?.let {
+        for ((smsBody, sender) in smsListWithSender) {
+            if (transactionDao.getTransactionByMessage(smsBody) == null) {
+                parseSms(smsBody, sender)?.let {
                     transactionDao.insert(it)
                     processedTransactions++
                 }
             }
         }
-        return Pair(smsList.size, processedTransactions)
+        return Pair(smsListWithSender.size, processedTransactions)
     }
 
-    private fun readSms(context: Context): List<String> {
-        val smsList = mutableListOf<String>()
+    private fun readSms(context: Context): List<Pair<String, String>> {
+        val smsList = mutableListOf<Pair<String, String>>()
         val uri = "content://sms/inbox".toUri()
         val cursor = context.contentResolver.query(uri, null, null, null, "date DESC")
 
         cursor?.use {
             val bodyIndex = it.getColumnIndex(Telephony.Sms.BODY)
-            if (bodyIndex >= 0) {
+            val addressIndex = it.getColumnIndex(Telephony.Sms.ADDRESS)
+            if (bodyIndex >= 0 && addressIndex >= 0) {
                 while (it.moveToNext()) {
                     val body = it.getString(bodyIndex)
-                    smsList.add(body)
+                    val sender = it.getString(addressIndex)
+                    smsList.add(Pair(body, sender))
                 }
             } else {
-                Log.e(TAG, "SMS body column not found")
+                Log.e(TAG, "SMS body or address column not found")
             }
         }
         return smsList
     }
 
-    private fun parseSms(sms: String): Transaction? {
+    private fun parseSms(sms: String, senderAddress: String): Transaction? {
         val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
         val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
@@ -82,7 +84,7 @@ object SmsManager {
 
             val finalMerchant = merchantFromUpiPattern ?: merchantFromGeneralPattern ?: "Unknown"
 
-            val bank = if (bankMatcher.find()) bankMatcher.group(1) else null
+            val bank = if (bankMatcher.find()) bankMatcher.group(1) else senderAddress
             val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
             val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
             val transactionDateTime = dateTimeString?.let { 

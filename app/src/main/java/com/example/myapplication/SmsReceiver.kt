@@ -21,7 +21,7 @@ class SmsReceiver : BroadcastReceiver() {
                 val sender = smsMessage.displayOriginatingAddress
                 Log.d("SmsReceiver", "SMS received from: $sender, Body: $messageBody")
 
-                val transaction = parseSms(messageBody, smsMessage.timestampMillis, context)
+                val transaction = parseSms(messageBody, smsMessage.timestampMillis, sender, context)
                 transaction?.let {
                     Log.d("SmsReceiver", "Parsed Transaction: $it")
                     (context?.applicationContext as? MyApplication)
@@ -32,7 +32,7 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun parseSms(messageBody: String, timestamp: Long, context: Context?): Transaction? {
+    private fun parseSms(messageBody: String, timestamp: Long, senderAddress: String, context: Context?): Transaction? {
         val amountPattern = Regex("""(?:Rs\.?|INR)\s?([\d,]+(?:\.\d{1,2})?)""")
         val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
         val bankPattern = Pattern.compile("""(?:from|in)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card)""")
@@ -70,7 +70,7 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val category = classifyTransaction(finalMerchant, messageBody)
-        val bank = if (bankMatcher.find()) bankMatcher.group(1) else null
+        val bank = if (bankMatcher.find()) bankMatcher.group(1) else senderAddress
         val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
         val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
         val transactionDateTime = dateTimeString?.let {
