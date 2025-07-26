@@ -12,6 +12,7 @@ navigationFragmentKtx = "2.6.0"
 navigationUiKtx = "2.6.0"
 room = "2.7.0"
 roomPaging = "2.6.1"
+mpandroidchart = "3.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

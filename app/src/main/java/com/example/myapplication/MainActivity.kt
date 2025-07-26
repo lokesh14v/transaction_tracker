@@ -7,20 +7,17 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.NavController
-import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import com.example.myapplication.databinding.ActivityMainBinding
+import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
-    private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,15 +27,17 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
 
-        val navHostFragment = supportFragmentManager
-            .findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment
-        navController = navHostFragment.navController
-        appBarConfiguration = AppBarConfiguration(navController.graph)
-        setupActionBarWithNavController(navController, appBarConfiguration)
+        val viewPagerAdapter = ViewPagerAdapter(this)
+        binding.viewPager.adapter = viewPagerAdapter
 
-        binding.viewTransactionsButton.setOnClickListener {
-            navController.navigate(R.id.TransactionListFragment)
-        }
+        TabLayoutMediator(binding.tabLayout, binding.viewPager) {
+            tab, position ->
+            tab.text = when (position) {
+                0 -> "Transactions"
+                1 -> "Chart"
+                else -> ""
+            }
+        }.attach()
 
         checkAndRequestPermissions()
     }
@@ -89,16 +88,9 @@ class MainActivity : AppCompatActivity() {
             // 3. Check for duplicates in the database and avoid reprocessing.
             val (smsCount, processedTransactions) = SmsManager.syncSms(this@MainActivity)
 
-            runOnUiThread {
-                binding.smsCountTextView.text = "SMS Read: $smsCount"
-                binding.transactionsProcessedTextView.text = "Transactions Processed: $processedTransactions"
-            }
+            // Removed UI updates for smsCountTextView and transactionsProcessedTextView
+            // as they are no longer in the layout.
         }
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        return navController.navigateUp(appBarConfiguration)
-                || super.onSupportNavigateUp()
     }
 
     companion object {

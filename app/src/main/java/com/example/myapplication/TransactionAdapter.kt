@@ -25,6 +25,7 @@ class TransactionAdapter : ListAdapter<Transaction, TransactionAdapter.Transacti
             binding.transactionMerchant.text = "Merchant: ${transaction.merchant ?: "Unknown"}"
             binding.transactionType.text = "Type: ${transaction.type}"
             binding.transactionCategory.text = "Category: ${transaction.category}"
+            binding.transactionBank.text = "Bank: ${transaction.bank ?: "N/A"}"
         }
     }
 

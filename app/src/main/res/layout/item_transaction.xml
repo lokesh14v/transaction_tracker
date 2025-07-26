@@ -32,4 +32,10 @@
         android:layout_height="wrap_content"
         tools:text="Category: FOOD" />
 
+    <TextView
+        android:id="@+id/transactionBank"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="Bank: SBI" />
+
 </LinearLayout>

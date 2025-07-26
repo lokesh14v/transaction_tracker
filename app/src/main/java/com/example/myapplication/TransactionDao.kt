@@ -16,4 +16,7 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE originalMessage = :originalMessage")
     suspend fun getTransactionByMessage(originalMessage: String): Transaction?
+
+    @Query("SELECT DISTINCT bank FROM transactions WHERE bank IS NOT NULL")
+    fun getDistinctBanks(): LiveData<List<String>>
 }

@@ -11,7 +11,8 @@ data class Transaction(
     val date: Long,
     val type: TransactionType,
     val originalMessage: String,
-    var category: TransactionCategory = TransactionCategory.UNKNOWN
+    var category: TransactionCategory = TransactionCategory.UNKNOWN,
+    val bank: String? = null
 )
 
 enum class TransactionType {
@@ -26,5 +27,8 @@ enum class TransactionCategory {
     TRAVEL,
     SHOPPING,
     BILLS_UTILITIES,
+    ENTERTAINMENT,
+    HEALTH,
+    TRANSPORT,
     UNKNOWN
 }
