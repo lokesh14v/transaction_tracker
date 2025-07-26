@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 
+
 class MyApplication : Application() {
 
     val transactionViewModel: TransactionViewModel by lazy {
