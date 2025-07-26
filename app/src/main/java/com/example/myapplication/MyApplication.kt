@@ -1,4 +1,4 @@
-package com.example.myappligit acation
+package com.example.myapplication
 
 import android.app.Application
 import androidx.lifecycle.ViewModelProvider
