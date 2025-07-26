@@ -56,7 +56,7 @@ object SmsManager {
         val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
         val bankPattern = Pattern.compile("""from\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card)""")
-        val upiPattern = Pattern.compile("""upi/p2m/[^/]+/([^/]+)""")
+        val upiPattern = Pattern.compile("""UPI/P2M/(?:[^/]+/)*([^/\s]+)""", Pattern.CASE_INSENSITIVE)
         val accountNumberPattern = Pattern.compile("""A/c no\. ([X*\d]+)""")
         val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2},\s*\d{2}:\d{2}:\d{2})""")
 
@@ -76,7 +76,12 @@ object SmsManager {
                 "debited", "spent", "paid", "deducted", "purchase", "payment", "withdrawal" -> TransactionType.DEBIT
                 else -> TransactionType.UNKNOWN
             }
-            val merchant = if (merchantMatcher.find()) merchantMatcher.group(1) ?: "Unknown" else "Unknown"
+            val merchantFromGeneralPattern = if (merchantMatcher.find()) merchantMatcher.group(1) else null
+            val upiMatcherForMerchant = upiPattern.matcher(sms) // Create a new matcher for this specific use
+            val merchantFromUpiPattern = if (upiMatcherForMerchant.find()) upiMatcherForMerchant.group(1) else null
+
+            val finalMerchant = merchantFromUpiPattern ?: merchantFromGeneralPattern ?: "Unknown"
+
             val bank = if (bankMatcher.find()) bankMatcher.group(1) else null
             val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
             val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
@@ -89,9 +94,6 @@ object SmsManager {
                 }
             }
 
-            val upiMatcher = upiPattern.matcher(sms)
-            val finalMerchant = if (upiMatcher.find()) upiMatcher.group(1) else merchant
-
             val transaction = Transaction(
                 amount = amount,
                 merchant = finalMerchant,
@@ -100,35 +102,43 @@ object SmsManager {
                 originalMessage = sms,
                 bank = bank,
                 accountNumber = accountNumber,
-                transactionDateTime = transactionDateTime
+                transactionDateTime = transactionDateTime,
+                category = classifyTransaction(finalMerchant, sms)
             )
-            transaction.category = classifyTransaction(finalMerchant, sms)
             return transaction
         }
         return null
     }
 
     private fun classifyTransaction(merchant: String, originalMessage: String): TransactionCategory {
-        val upiCategoryPattern = Pattern.compile("""upi/p2m/[^/]+/([^/]+)""")
-        val upiCategoryMatcher = upiCategoryPattern.matcher(originalMessage)
-
-        if (upiCategoryMatcher.find()) {
-            val upiMerchant = upiCategoryMatcher.group(1)
-            if (upiMerchant.equals("REDBUS", ignoreCase = true)) {
-                return TransactionCategory.TRAVEL
-            }
-            return TransactionCategory.UPI_TRANSFER
-        }
+        val lowerMerchant = merchant.lowercase()
+        val lowerMessage = originalMessage.lowercase()
 
         return when {
-            merchant.contains("zomato", ignoreCase = true) || merchant.contains("swiggy", ignoreCase = true) || merchant.contains("restaurant", ignoreCase = true) || merchant.contains("cafe", ignoreCase = true) || merchant.contains("pizza", ignoreCase = true) || merchant.contains("food", ignoreCase = true) || merchant.contains("dine", ignoreCase = true) -> TransactionCategory.FOOD
-            merchant.contains("bar", ignoreCase = true) || merchant.contains("pub", ignoreCase = true) -> TransactionCategory.BAR_ALCOHOL
-            merchant.contains("uber", ignoreCase = true) || merchant.contains("ola", ignoreCase = true) || merchant.contains("taxi", ignoreCase = true) || merchant.contains("cab", ignoreCase = true) || merchant.contains("flight", ignoreCase = true) || merchant.contains("hotel", ignoreCase = true) || merchant.contains("travel", ignoreCase = true) || merchant.contains("redbus", ignoreCase = true) || merchant.contains("irctc", ignoreCase = true) -> TransactionCategory.TRAVEL
-            merchant.contains("amazon", ignoreCase = true) || merchant.contains("flipkart", ignoreCase = true) || merchant.contains("store", ignoreCase = true) || merchant.contains("shop", ignoreCase = true) || merchant.contains("mall", ignoreCase = true) || merchant.contains("online", ignoreCase = true) || merchant.contains("myntra", ignoreCase = true) || merchant.contains("shopify", ignoreCase = true) -> TransactionCategory.SHOPPING
-            merchant.contains("electricity", ignoreCase = true) || merchant.contains("utility", ignoreCase = true) || merchant.contains("bill", ignoreCase = true) || merchant.contains("water", ignoreCase = true) || merchant.contains("gas", ignoreCase = true) || merchant.contains("rent", ignoreCase = true) || merchant.contains("emi", ignoreCase = true) || merchant.contains("broadband", ignoreCase = true) || merchant.contains("recharge", ignoreCase = true) -> TransactionCategory.BILLS_UTILITIES
-            merchant.contains("movie", ignoreCase = true) || merchant.contains("cinema", ignoreCase = true) || merchant.contains("ticket", ignoreCase = true) || merchant.contains("event", ignoreCase = true) || merchant.contains("netflix", ignoreCase = true) || merchant.contains("spotify", ignoreCase = true) -> TransactionCategory.ENTERTAINMENT
-            merchant.contains("pharmacy", ignoreCase = true) || merchant.contains("hospital", ignoreCase = true) || merchant.contains("clinic", ignoreCase = true) || merchant.contains("doctor", ignoreCase = true) || merchant.contains("medical", ignoreCase = true) -> TransactionCategory.HEALTH
-            merchant.contains("fuel", ignoreCase = true) || merchant.contains("petrol", ignoreCase = true) || merchant.contains("bus", ignoreCase = true) || merchant.contains("train", ignoreCase = true) -> TransactionCategory.TRANSPORT
+            lowerMerchant.contains("redbus") -> TransactionCategory.TRAVEL
+            lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
+
+            listOf("zomato", "swiggy", "restaurant", "cafe", "pizza", "food", "dine").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.FOOD
+
+            listOf("bar", "pub").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.BAR_ALCOHOL
+
+            listOf("uber", "ola", "taxi", "cab", "flight", "hotel", "travel", "irctc", "redbus", "bus", "train").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.TRAVEL
+
+            listOf("amazon", "flipkart", "store", "shop", "mall", "online", "myntra", "shopify").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.SHOPPING
+
+            listOf("electricity", "utility", "bill", "water", "gas", "rent", "emi", "broadband", "recharge").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.BILLS_UTILITIES
+
+            listOf("movie", "cinema", "ticket", "event", "netflix", "spotify").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.ENTERTAINMENT
+
+            listOf("pharmacy", "hospital", "clinic", "doctor", "medical").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.HEALTH
+
             else -> TransactionCategory.UNKNOWN
         }
     }

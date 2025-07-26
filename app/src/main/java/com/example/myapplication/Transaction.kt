@@ -8,6 +8,8 @@ data class Transaction(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val amount: Double,
     val merchant: String?,
+    val extractedMerchant: String? = null,
+    val extractedUpiMerchant: String? = null,
     val smsDate: Long,
     val type: TransactionType,
     val originalMessage: String,

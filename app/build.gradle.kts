@@ -40,25 +40,24 @@ android {
     buildFeatures {
         viewBinding = true
     }
-}
+    dependencies {
 
-dependencies {
+        implementation(libs.androidx.core.ktx)
+        implementation(libs.androidx.appcompat)
+        implementation(libs.material)
+        implementation(libs.androidx.constraintlayout)
+        implementation(libs.androidx.navigation.fragment.ktx)
+        implementation(libs.androidx.navigation.ui.ktx)
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.navigation.fragment.ktx)
-    implementation(libs.androidx.navigation.ui.ktx)
+        // Room
+        implementation(libs.room.runtime)
+        ksp(libs.room.compiler)
+        // Optional: Room Paging 3 Integration
+        implementation(libs.room.paging)
 
-    // Room
-    implementation(libs.room.runtime)
-    ksp(libs.room.compiler)
-    // Optional: Room Paging 3 Integration
-    implementation(libs.room.paging)
-
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    implementation(libs.androidx.espresso.core)
-    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+        testImplementation(libs.junit)
+        androidTestImplementation(libs.androidx.junit)
+        implementation(libs.androidx.espresso.core)
+        implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+    }
 }
