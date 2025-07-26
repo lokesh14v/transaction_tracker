@@ -61,7 +61,7 @@ object SmsManager {
             val amount = amountMatcher.group(1).replace(",", "").toDouble()
             val typeStr = typeMatcher.group(1)
             val type = if (typeStr.equals("credited", ignoreCase = true)) TransactionType.CREDIT else TransactionType.DEBIT
-            val merchant = if (merchantMatcher.find()) merchantMatcher.group(1) else "Unknown"
+            val merchant = if (merchantMatcher.find()) merchantMatcher.group(1) ?: "Unknown" else "Unknown"
 
             val transaction = Transaction(
                 amount = amount,
@@ -76,9 +76,8 @@ object SmsManager {
         return null
     }
 
-    private fun classifyTransaction(merchant: String?): TransactionCategory {
+    private fun classifyTransaction(merchant: String): TransactionCategory {
         return when {
-            merchant == null -> TransactionCategory.UNKNOWN
             merchant.contains("zomato", ignoreCase = true) || merchant.contains("swiggy", ignoreCase = true) -> TransactionCategory.FOOD
             merchant.contains("bar", ignoreCase = true) || merchant.contains("pub", ignoreCase = true) -> TransactionCategory.BAR_ALCOHOL
             merchant.contains("amazon", ignoreCase = true) || merchant.contains("flipkart", ignoreCase = true) -> TransactionCategory.SHOPPING
