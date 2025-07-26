@@ -6,6 +6,9 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.databinding.ItemTransactionBinding
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class TransactionAdapter : ListAdapter<Transaction, TransactionAdapter.TransactionViewHolder>(TransactionDiffCallback()) {
 
@@ -26,6 +29,8 @@ class TransactionAdapter : ListAdapter<Transaction, TransactionAdapter.Transacti
             binding.transactionType.text = "Type: ${transaction.type}"
             binding.transactionCategory.text = "Category: ${transaction.category}"
             binding.transactionBank.text = "Bank: ${transaction.bank ?: "N/A"}"
+            binding.transactionAccountNumber.text = "A/c: ${transaction.accountNumber ?: "N/A"}"
+            binding.transactionDateTime.text = "Date: ${transaction.transactionDateTime?.let { SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault()).format(Date(it)) } ?: "N/A"}"
         }
     }
 

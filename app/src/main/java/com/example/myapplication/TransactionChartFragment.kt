@@ -49,14 +49,14 @@ class TransactionChartFragment : Fragment() {
                 val selectedBank = parent?.getItemAtPosition(position).toString()
                 if (selectedBank == "All Banks") {
                     transactionDao.getAllTransactions().observe(viewLifecycleOwner, Observer {
-                        val categoryCounts = it.groupingBy { transaction -> transaction.category }.eachCount()
-                        setupPieChart(categoryCounts)
+                        val categoryAmounts = it.groupingBy { transaction -> transaction.category }.fold(0.0) { acc, transaction -> acc + transaction.amount }
+                        setupPieChart(categoryAmounts)
                     })
                 } else {
                     transactionDao.getAllTransactions().observe(viewLifecycleOwner, Observer {
                         val filteredTransactions = it.filter { transaction -> transaction.bank == selectedBank }
-                        val categoryCounts = filteredTransactions.groupingBy { transaction -> transaction.category }.eachCount()
-                        setupPieChart(categoryCounts)
+                        val categoryAmounts = filteredTransactions.groupingBy { transaction -> transaction.category }.fold(0.0) { acc, transaction -> acc + transaction.amount }
+                        setupPieChart(categoryAmounts)
                     })
                 }
             }
@@ -67,10 +67,10 @@ class TransactionChartFragment : Fragment() {
         }
     }
 
-    private fun setupPieChart(categoryCounts: Map<TransactionCategory, Int>) {
+    private fun setupPieChart(categoryAmounts: Map<TransactionCategory, Double>) {
         val entries = ArrayList<PieEntry>()
-        for ((category, count) in categoryCounts) {
-            entries.add(PieEntry(count.toFloat(), category.name))
+        for ((category, amount) in categoryAmounts) {
+            entries.add(PieEntry(amount.toFloat(), category.name))
         }
 
         val dataSet = PieDataSet(entries, "Transaction Categories")

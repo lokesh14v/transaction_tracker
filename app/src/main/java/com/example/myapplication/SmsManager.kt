@@ -9,6 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
+import java.text.SimpleDateFormat
+import java.text.ParseException
+import java.util.Locale
 
 object SmsManager {
 
@@ -53,11 +56,17 @@ object SmsManager {
         val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
         val bankPattern = Pattern.compile("""from\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card)""")
+        val upiPattern = Pattern.compile("""upi/p2m/[^/]+/([^/]+)""")
+        val accountNumberPattern = Pattern.compile("""A/c no\. ([X*\d]+)""")
+        val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2},\s*\d{2}:\d{2}:\d{2})""")
 
         val amountMatcher = amountPattern.matcher(sms)
         val merchantMatcher = merchantPattern.matcher(sms)
         val typeMatcher = typePattern.matcher(sms)
         val bankMatcher = bankPattern.matcher(sms)
+        val upiMatcher = upiPattern.matcher(sms)
+        val accountNumberMatcher = accountNumberPattern.matcher(sms)
+        val dateTimeMatcher = dateTimePattern.matcher(sms)
 
         if (amountMatcher.find() && typeMatcher.find()) {
             val amount = amountMatcher.group(1).replace(",", "").toDouble()
@@ -69,22 +78,48 @@ object SmsManager {
             }
             val merchant = if (merchantMatcher.find()) merchantMatcher.group(1) ?: "Unknown" else "Unknown"
             val bank = if (bankMatcher.find()) bankMatcher.group(1) else null
+            val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
+            val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
+            val transactionDateTime = dateTimeString?.let { 
+                try {
+                    val format = SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault())
+                    format.parse(it)?.time
+                } catch (e: ParseException) {
+                    null
+                }
+            }
+
+            val upiMatcher = upiPattern.matcher(sms)
+            val finalMerchant = if (upiMatcher.find()) upiMatcher.group(1) else merchant
 
             val transaction = Transaction(
                 amount = amount,
-                merchant = merchant,
-                date = System.currentTimeMillis(),
+                merchant = finalMerchant,
+                smsDate = System.currentTimeMillis(),
                 type = type,
                 originalMessage = sms,
-                bank = bank
+                bank = bank,
+                accountNumber = accountNumber,
+                transactionDateTime = transactionDateTime
             )
-            transaction.category = classifyTransaction(merchant)
+            transaction.category = classifyTransaction(finalMerchant, sms)
             return transaction
         }
         return null
     }
 
-    private fun classifyTransaction(merchant: String): TransactionCategory {
+    private fun classifyTransaction(merchant: String, originalMessage: String): TransactionCategory {
+        val upiCategoryPattern = Pattern.compile("""upi/p2m/[^/]+/([^/]+)""")
+        val upiCategoryMatcher = upiCategoryPattern.matcher(originalMessage)
+
+        if (upiCategoryMatcher.find()) {
+            val upiMerchant = upiCategoryMatcher.group(1)
+            if (upiMerchant.equals("REDBUS", ignoreCase = true)) {
+                return TransactionCategory.TRAVEL
+            }
+            return TransactionCategory.UPI_TRANSFER
+        }
+
         return when {
             merchant.contains("zomato", ignoreCase = true) || merchant.contains("swiggy", ignoreCase = true) || merchant.contains("restaurant", ignoreCase = true) || merchant.contains("cafe", ignoreCase = true) || merchant.contains("pizza", ignoreCase = true) || merchant.contains("food", ignoreCase = true) || merchant.contains("dine", ignoreCase = true) -> TransactionCategory.FOOD
             merchant.contains("bar", ignoreCase = true) || merchant.contains("pub", ignoreCase = true) -> TransactionCategory.BAR_ALCOHOL

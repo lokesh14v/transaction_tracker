@@ -8,11 +8,13 @@ data class Transaction(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val amount: Double,
     val merchant: String?,
-    val date: Long,
+    val smsDate: Long,
     val type: TransactionType,
     val originalMessage: String,
     var category: TransactionCategory = TransactionCategory.UNKNOWN,
-    val bank: String? = null
+    val bank: String? = null,
+    val accountNumber: String? = null,
+    val transactionDateTime: Long? = null
 )
 
 enum class TransactionType {
@@ -30,5 +32,6 @@ enum class TransactionCategory {
     ENTERTAINMENT,
     HEALTH,
     TRANSPORT,
+    UPI_TRANSFER,
     UNKNOWN
 }
