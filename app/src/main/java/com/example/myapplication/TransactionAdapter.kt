@@ -24,13 +24,29 @@ class TransactionAdapter : ListAdapter<Transaction, TransactionAdapter.Transacti
 
     class TransactionViewHolder(private val binding: ItemTransactionBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(transaction: Transaction) {
-            binding.transactionAmount.text = "Amount: ${transaction.amount}"
+            val context = binding.root.context
+            val amountText = String.format(Locale.getDefault(), "₹ %.2f", transaction.amount)
+            binding.transactionAmount.text = amountText
+
+            val amountColor = when (transaction.type) {
+                TransactionType.CREDIT -> context.resources.getColor(android.R.color.holo_green_dark, null)
+                TransactionType.DEBIT -> context.resources.getColor(android.R.color.holo_red_dark, null)
+                else -> context.resources.getColor(android.R.color.black, null)
+            }
+            binding.transactionAmount.setTextColor(amountColor)
+
+            binding.transactionType.text = "(${transaction.type})"
             binding.transactionMerchant.text = "Merchant: ${transaction.merchant ?: "Unknown"}"
-            binding.transactionType.text = "Type: ${transaction.type}"
             binding.transactionCategory.text = "Category: ${transaction.category}"
             binding.transactionBank.text = "Bank: ${transaction.bank ?: "N/A"}"
             binding.transactionAccountNumber.text = "A/c: ${transaction.accountNumber ?: "N/A"}"
-            binding.transactionDateTime.text = "Date: ${transaction.transactionDateTime?.let { SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault()).format(Date(it)) } ?: "N/A"}"
+
+            val smsDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            binding.smsDate.text = "SMS Date: ${smsDateFormat.format(Date(transaction.smsDate))}"
+
+            binding.transactionDateTime.text = transaction.transactionDateTime?.let {
+                "Transaction Date: ${SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault()).format(Date(it))}"
+            } ?: "Transaction Date: N/A"
         }
     }
 

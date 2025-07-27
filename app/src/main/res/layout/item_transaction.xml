@@ -1,53 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="8dp">
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
 
-    <TextView
-        android:id="@+id/transactionAmount"
-        android:layout_width="wrap_content"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        tools:text="Amount: 100.00" />
+        android:padding="16dp">
 
-    <TextView
-        android:id="@+id/transactionMerchant"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        tools:text="Merchant: Unknown" />
+        <!-- Amount and Type -->
+        <TextView
+            android:id="@+id/transactionAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="₹ 100.00" />
 
-    <TextView
-        android:id="@+id/transactionType"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        tools:text="Type: DEBIT" />
+        <TextView
+            android:id="@+id/transactionType"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@+id/transactionAmount"
+            app:layout_constraintStart_toEndOf="@+id/transactionAmount"
+            app:layout_constraintTop_toTopOf="@+id/transactionAmount"
+            tools:text="(DEBIT)" />
 
-    <TextView
-        android:id="@+id/transactionCategory"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        tools:text="Category: FOOD" />
+        <!-- Merchant and Category -->
+        <TextView
+            android:id="@+id/transactionMerchant"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="16sp"
+            android:textColor="@android:color/darker_gray"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/transactionAmount"
+            tools:text="Merchant: Unknown" />
 
-    <TextView
-        android:id="@+id/transactionBank"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        tools:text="Bank: SBI" />
+        <TextView
+            android:id="@+id/transactionCategory"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="14sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/transactionMerchant"
+            tools:text="Category: FOOD" />
 
-    <TextView
-        android:id="@+id/transactionAccountNumber"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        tools:text="A/c: XX7334" />
+        <!-- Bank and Account Number -->
+        <TextView
+            android:id="@+id/transactionBank"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/transactionCategory"
+            tools:text="Bank: SBI" />
 
-    <TextView
-        android:id="@+id/transactionDateTime"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        tools:text="Date: 25-07-25, 22:16:10" />
+        <TextView
+            android:id="@+id/transactionAccountNumber"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@+id/transactionBank"
+            app:layout_constraintStart_toEndOf="@+id/transactionBank"
+            app:layout_constraintTop_toTopOf="@+id/transactionBank"
+            tools:text="A/c: XX7334" />
 
-</LinearLayout>
+        <!-- SMS Date and Transaction Date/Time -->
+        <TextView
+            android:id="@+id/smsDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/transactionBank"
+            tools:text="SMS Date: 25/07/2025" />
+
+        <TextView
+            android:id="@+id/transactionDateTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/smsDate"
+            tools:text="Transaction Date: 25-07-25, 22:16:10" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>
