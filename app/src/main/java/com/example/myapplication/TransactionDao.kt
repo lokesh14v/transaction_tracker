@@ -8,8 +8,8 @@ import androidx.room.Query
 
 @Dao
 interface TransactionDao {
-    @Query("SELECT * FROM transactions ORDER BY smsDate DESC")
-    fun getAllTransactions(): LiveData<List<Transaction>>
+    @Query("SELECT * FROM transactions WHERE transactionDateTime BETWEEN :startDate AND :endDate ORDER BY transactionDateTime DESC")
+    fun getTransactionsBetweenDates(startDate: Long, endDate: Long): LiveData<List<Transaction>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: Transaction)
@@ -19,4 +19,7 @@ interface TransactionDao {
 
     @Query("SELECT DISTINCT bank FROM transactions WHERE bank IS NOT NULL")
     fun getDistinctBanks(): LiveData<List<String>>
+
+    @Query("UPDATE transactions SET category = :newCategory, userDefinedCategoryName = :userDefinedCategoryName WHERE id = :transactionId")
+    suspend fun updateCategory(transactionId: Int, newCategory: TransactionCategory, userDefinedCategoryName: String?)
 }

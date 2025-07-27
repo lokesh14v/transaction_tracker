@@ -16,7 +16,8 @@ data class Transaction(
     var category: TransactionCategory = TransactionCategory.UNKNOWN,
     val bank: String? = null,
     val accountNumber: String? = null,
-    val transactionDateTime: Long? = null
+    val transactionDateTime: Long? = null,
+    var userDefinedCategoryName: String? = null
 )
 
 enum class TransactionType {

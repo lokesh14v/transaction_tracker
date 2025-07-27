@@ -21,9 +21,11 @@ object SmsManager {
         var processedTransactions = 0
         val smsListWithSender = readSms(context)
         val transactionDao = AppDatabase.getDatabase(context).transactionDao()
-        for ((smsBody, sender) in smsListWithSender) {
+        val userCategoryMappingDao = AppDatabase.getDatabase(context).userCategoryMappingDao()
+
+        for ((smsBody, sender, timestamp) in smsListWithSender) {
             if (transactionDao.getTransactionByMessage(smsBody) == null) {
-                parseSms(smsBody, sender)?.let {
+                parseSms(smsBody, sender, timestamp, userCategoryMappingDao)?.let {
                     transactionDao.insert(it)
                     processedTransactions++
                 }
@@ -32,28 +34,30 @@ object SmsManager {
         return Pair(smsListWithSender.size, processedTransactions)
     }
 
-    private fun readSms(context: Context): List<Pair<String, String>> {
-        val smsList = mutableListOf<Pair<String, String>>()
+    private fun readSms(context: Context): List<Triple<String, String, Long>> {
+        val smsList = mutableListOf<Triple<String, String, Long>>()
         val uri = "content://sms/inbox".toUri()
         val cursor = context.contentResolver.query(uri, null, null, null, "date DESC")
 
         cursor?.use {
             val bodyIndex = it.getColumnIndex(Telephony.Sms.BODY)
             val addressIndex = it.getColumnIndex(Telephony.Sms.ADDRESS)
-            if (bodyIndex >= 0 && addressIndex >= 0) {
+            val dateIndex = it.getColumnIndex(Telephony.Sms.DATE)
+            if (bodyIndex >= 0 && addressIndex >= 0 && dateIndex >= 0) {
                 while (it.moveToNext()) {
                     val body = it.getString(bodyIndex)
                     val sender = it.getString(addressIndex)
-                    smsList.add(Pair(body, sender))
+                    val timestamp = it.getLong(dateIndex)
+                    smsList.add(Triple(body, sender, timestamp))
                 }
             } else {
-                Log.e(TAG, "SMS body or address column not found")
+                Log.e(TAG, "SMS body, address, or date column not found")
             }
         }
         return smsList
     }
 
-    private fun parseSms(sms: String, senderAddress: String): Transaction? {
+    private suspend fun parseSms(sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
         val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
@@ -96,27 +100,35 @@ object SmsManager {
                 }
             }
 
+            val finalCategory = classifyTransaction(finalMerchant, sms, userCategoryMappingDao)
+
             val transaction = Transaction(
                 amount = amount,
                 merchant = finalMerchant,
-                smsDate = System.currentTimeMillis(),
+                smsDate = timestamp,
                 type = type,
                 originalMessage = sms,
                 bank = bank,
                 accountNumber = accountNumber,
                 transactionDateTime = transactionDateTime,
-                category = classifyTransaction(finalMerchant, sms)
+                category = finalCategory
             )
             return transaction
         }
         return null
     }
 
-    private fun classifyTransaction(merchant: String, originalMessage: String): TransactionCategory {
+    private suspend fun classifyTransaction(merchant: String, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
         val lowerMerchant = merchant.lowercase()
         val lowerMessage = originalMessage.lowercase()
 
-        return when {
+        // First, check user-defined mappings
+        val userMapping = userCategoryMappingDao.getMappingForText(lowerMerchant) ?: userCategoryMappingDao.getMappingForText(lowerMessage)
+        if (userMapping != null) {
+            return userMapping.category
+        }
+
+        val detectedCategory = when {
             lowerMerchant.contains("redbus") -> TransactionCategory.TRAVEL
             lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
             lowerMessage.contains("upi/p2a") -> TransactionCategory.SPEND_TO_PERSON
@@ -144,5 +156,13 @@ object SmsManager {
 
             else -> TransactionCategory.UNKNOWN
         }
+
+        if (detectedCategory == TransactionCategory.UNKNOWN) {
+            // Placeholder for notification logic
+            Log.d(TAG, "Unknown category detected for: $originalMessage. Prompt user for category.")
+            // In a real app, you would trigger a notification here
+            // For example: NotificationHelper.showCategoryPromptNotification(context, originalMessage, finalMerchant)
+        }
+        return detectedCategory
     }
 }
