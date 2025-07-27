@@ -17,6 +17,7 @@ import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.utils.ColorTemplate
+import com.github.mikephil.charting.formatter.ValueFormatter
 import java.util.Calendar
 
 class TransactionChartFragment : Fragment() {
@@ -92,7 +93,7 @@ class TransactionChartFragment : Fragment() {
     private fun setupPieChart(categoryAmounts: Map<TransactionCategory, Double>) {
         val entries = ArrayList<PieEntry>()
         for ((category, amount) in categoryAmounts) {
-            entries.add(PieEntry(amount.toFloat(), category))
+            entries.add(PieEntry(amount.toFloat(), category.name))
         }
 
         val dataSet = PieDataSet(entries, "Transaction Categories")
@@ -104,6 +105,7 @@ class TransactionChartFragment : Fragment() {
         binding.pieChart.data = data
         binding.pieChart.description.isEnabled = false
         binding.pieChart.setEntryLabelColor(Color.BLACK)
+        binding.pieChart.setDrawEntryLabels(true) // Ensure labels are drawn
         binding.pieChart.animateY(1000)
         binding.pieChart.invalidate()
     }
