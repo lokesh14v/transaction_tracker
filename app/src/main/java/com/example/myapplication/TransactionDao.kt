@@ -8,8 +8,8 @@ import androidx.room.Query
 
 @Dao
 interface TransactionDao {
-    @Query("SELECT * FROM transactions ORDER BY smsDate DESC")
-    fun getAllTransactions(): LiveData<List<Transaction>>
+    @Query("SELECT * FROM transactions WHERE smsDate BETWEEN :startDate AND :endDate ORDER BY smsDate DESC")
+    fun getTransactionsBetweenDates(startDate: Long, endDate: Long): LiveData<List<Transaction>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: Transaction)

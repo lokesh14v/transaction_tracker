@@ -22,11 +22,11 @@ class SmsReceiver : BroadcastReceiver() {
                 Log.d("SmsReceiver", "SMS received from: $sender, Body: $messageBody")
 
                 val transaction = parseSms(messageBody, smsMessage.timestampMillis, sender, context)
-                transaction?.let {
-                    Log.d("SmsReceiver", "Parsed Transaction: $it")
+                if (transaction != null) {
+                    Log.d("SmsReceiver", "Parsed Transaction: $transaction")
                     (context?.applicationContext as? MyApplication)
                         ?.transactionViewModel
-                        ?.addTransaction(it)
+                        ?.addTransaction(transaction)
                 }
             }
         }

@@ -1,5 +1,3 @@
-package com.example.myapplication
-
 import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,22 +7,29 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
+import com.example.myapplication.AppDatabase
+import com.example.myapplication.TransactionCategory
+import com.example.myapplication.TransactionViewModel
+import com.example.myapplication.TransactionViewModelFactory
 import com.example.myapplication.databinding.FragmentTransactionChartBinding
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.utils.ColorTemplate
+import java.util.Calendar
 
 class TransactionChartFragment : Fragment() {
 
     private var _binding: FragmentTransactionChartBinding? = null
     private val binding get() = _binding!!
+    private lateinit var viewModel: TransactionViewModel
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         _binding = FragmentTransactionChartBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -33,32 +38,49 @@ class TransactionChartFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val transactionDao = AppDatabase.getDatabase(requireContext()).transactionDao()
+        val viewModelFactory = TransactionViewModelFactory(transactionDao)
+        viewModel = ViewModelProvider(this, viewModelFactory).get(TransactionViewModel::class.java)
 
-        // Observe distinct banks and populate the spinner
-        transactionDao.getDistinctBanks().observe(viewLifecycleOwner, Observer {
+        // Observe transactions
+        viewModel.transactions.observe(viewLifecycleOwner, Observer { transactions ->
+            val selectedBank = binding.bankSpinner.selectedItem?.toString()
+            val filteredTransactions = if (selectedBank == null || selectedBank == "All Banks") {
+                transactions
+            } else {
+                transactions.filter { transaction -> transaction.bank == selectedBank }
+            }
+
+            val categoryAmounts = filteredTransactions.groupingBy { it.category }
+                .fold(0.0) { acc, transaction -> acc + transaction.amount }
+
+            setupPieChart(categoryAmounts)
+        })
+
+        // Load transactions for the last 30 days
+        val calendar = Calendar.getInstance()
+        val endDate = calendar.timeInMillis
+        calendar.add(Calendar.DAY_OF_YEAR, -30)
+        val startDate = calendar.timeInMillis
+        viewModel.loadTransactionsByDateRange(startDate, endDate)
+
+        // Populate bank spinner
+        transactionDao.getDistinctBanks().observe(viewLifecycleOwner, Observer { banksList ->
             val banks = mutableListOf("All Banks")
-            banks.addAll(it)
+            banks.addAll(banksList)
             val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, banks)
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             binding.bankSpinner.adapter = adapter
         })
 
-        // Observe selected bank and update chart
+        // Spinner listener
         binding.bankSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedBank = parent?.getItemAtPosition(position).toString()
-                if (selectedBank == "All Banks") {
-                    transactionDao.getAllTransactions().observe(viewLifecycleOwner, Observer {
-                        val categoryAmounts = it.groupingBy { transaction -> transaction.category }.fold(0.0) { acc, transaction -> acc + transaction.amount }
-                        setupPieChart(categoryAmounts)
-                    })
-                } else {
-                    transactionDao.getAllTransactions().observe(viewLifecycleOwner, Observer {
-                        val filteredTransactions = it.filter { transaction -> transaction.bank == selectedBank }
-                        val categoryAmounts = filteredTransactions.groupingBy { transaction -> transaction.category }.fold(0.0) { acc, transaction -> acc + transaction.amount }
-                        setupPieChart(categoryAmounts)
-                    })
-                }
+                val calendar = Calendar.getInstance()
+                val endDate = calendar.timeInMillis
+                calendar.add(Calendar.DAY_OF_YEAR, -30)
+                val startDate = calendar.timeInMillis
+                viewModel.loadTransactionsByDateRange(startDate, endDate, selectedBank)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -70,7 +92,7 @@ class TransactionChartFragment : Fragment() {
     private fun setupPieChart(categoryAmounts: Map<TransactionCategory, Double>) {
         val entries = ArrayList<PieEntry>()
         for ((category, amount) in categoryAmounts) {
-            entries.add(PieEntry(amount.toFloat(), category.name))
+            entries.add(PieEntry(amount.toFloat(), category))
         }
 
         val dataSet = PieDataSet(entries, "Transaction Categories")
