@@ -5,8 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp">
+    app:cardCornerRadius="12dp"
+    app:cardElevation="6dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -19,7 +19,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@android:color/black"
-            android:textSize="18sp"
+            android:textSize="20sp"
             android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
@@ -30,13 +30,37 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:textSize="14sp"
+            android:textSize="16sp"
             app:layout_constraintBottom_toBottomOf="@+id/transactionAmount"
             app:layout_constraintStart_toEndOf="@+id/transactionAmount"
             app:layout_constraintTop_toTopOf="@+id/transactionAmount"
             tools:text="(DEBIT)" />
 
-        <!-- Merchant and Category -->
+        <!-- Category (Top Right) -->
+        <TextView
+            android:id="@+id/transactionCategory"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textStyle="italic"
+            android:textColor="@android:color/holo_blue_dark"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="FOOD" />
+
+        <!-- SMS Date (Below Category, Top Right) -->
+        <TextView
+            android:id="@+id/smsDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/transactionCategory"
+            tools:text="25/07/2025" />
+
+        <!-- Merchant (Below Amount, spans to category) -->
         <TextView
             android:id="@+id/transactionMerchant"
             android:layout_width="0dp"
@@ -44,20 +68,10 @@
             android:layout_marginTop="8dp"
             android:textSize="16sp"
             android:textColor="@android:color/darker_gray"
-            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/transactionCategory"
             app:layout_constraintTop_toBottomOf="@+id/transactionAmount"
             tools:text="Merchant: Unknown" />
-
-        <TextView
-            android:id="@+id/transactionCategory"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="14sp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/transactionMerchant"
-            tools:text="Category: FOOD" />
 
         <!-- Bank and Account Number -->
         <TextView
@@ -66,8 +80,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/transactionCategory"
+            app:layout_constraintTop_toBottomOf="@+id/transactionMerchant"
             tools:text="Bank: SBI" />
 
         <TextView
@@ -76,33 +91,11 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
             app:layout_constraintBottom_toBottomOf="@+id/transactionBank"
             app:layout_constraintStart_toEndOf="@+id/transactionBank"
             app:layout_constraintTop_toTopOf="@+id/transactionBank"
             tools:text="A/c: XX7334" />
-
-        <!-- SMS Date and Transaction Date/Time -->
-        <TextView
-            android:id="@+id/smsDate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/transactionBank"
-            tools:text="SMS Date: 25/07/2025" />
-
-        <TextView
-            android:id="@+id/transactionDateTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/smsDate"
-            tools:text="Transaction Date: 25-07-25, 22:16:10" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>

@@ -37,16 +37,12 @@ class TransactionAdapter : ListAdapter<Transaction, TransactionAdapter.Transacti
 
             binding.transactionType.text = "(${transaction.type})"
             binding.transactionMerchant.text = "Merchant: ${transaction.merchant ?: "Unknown"}"
-            binding.transactionCategory.text = "Category: ${transaction.category}"
+            binding.transactionCategory.text = transaction.category.name
             binding.transactionBank.text = "Bank: ${transaction.bank ?: "N/A"}"
             binding.transactionAccountNumber.text = "A/c: ${transaction.accountNumber ?: "N/A"}"
 
             val smsDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-            binding.smsDate.text = "SMS Date: ${smsDateFormat.format(Date(transaction.smsDate))}"
-
-            binding.transactionDateTime.text = transaction.transactionDateTime?.let {
-                "Transaction Date: ${SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault()).format(Date(it))}"
-            } ?: "Transaction Date: N/A"
+            binding.smsDate.text = smsDateFormat.format(Date(transaction.smsDate))
         }
     }
 
