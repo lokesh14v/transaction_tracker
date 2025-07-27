@@ -17,7 +17,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-class TransactionListFragment : Fragment() {
+class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.CategorySelectedListener {
 
     private var _binding: FragmentTransactionListBinding? = null
     private val binding get() = _binding!!
@@ -37,7 +37,11 @@ class TransactionListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        transactionAdapter = TransactionAdapter()
+        transactionAdapter = TransactionAdapter { transaction ->
+            // Handle category click
+            val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, this)
+            dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
+        }
         binding.transactionRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = transactionAdapter
@@ -49,6 +53,14 @@ class TransactionListFragment : Fragment() {
 
         viewModel.transactions.observe(viewLifecycleOwner) { transactions ->
             transactionAdapter.submitList(transactions)
+        }
+
+        viewModel.totalSpend.observe(viewLifecycleOwner) { totalSpend ->
+            binding.totalSpendTextView.text = String.format(Locale.getDefault(), "₹ %.2f", totalSpend)
+        }
+
+        viewModel.totalCredit.observe(viewLifecycleOwner) { totalCredit ->
+            binding.totalCreditTextView.text = String.format(Locale.getDefault(), "₹ %.2f", totalCredit)
         }
 
         // Default to last 30 days
@@ -105,6 +117,10 @@ class TransactionListFragment : Fragment() {
     private fun updateDateRangeText(startDate: Long, endDate: Long) {
         val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         binding.dateRangeTextView.text = "${sdf.format(Date(startDate))} - ${sdf.format(Date(endDate))}"
+    }
+
+    override fun onCategorySelected(transactionId: Int, newCategory: TransactionCategory) {
+        viewModel.updateTransactionCategory(transactionId, newCategory)
     }
 
     override fun onDestroyView() {

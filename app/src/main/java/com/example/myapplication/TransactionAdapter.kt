@@ -10,19 +10,22 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TransactionAdapter : ListAdapter<Transaction, TransactionAdapter.TransactionViewHolder>(TransactionDiffCallback()) {
+class TransactionAdapter @JvmOverloads constructor(private val onCategoryClick: (Transaction) -> Unit = {}) : ListAdapter<Transaction, TransactionAdapter.TransactionViewHolder>(TransactionDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
         val binding = ItemTransactionBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return TransactionViewHolder(binding)
+        return TransactionViewHolder(binding, onCategoryClick)
     }
 
-    override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
+    override fun onBindViewHolder(
+        holder: TransactionViewHolder,
+        position: Int
+    ) {
         val transaction = getItem(position)
         holder.bind(transaction)
     }
 
-    class TransactionViewHolder(private val binding: ItemTransactionBinding) : RecyclerView.ViewHolder(binding.root) {
+    inner class TransactionViewHolder(private val binding: ItemTransactionBinding, private val onCategoryClick: (Transaction) -> Unit) : RecyclerView.ViewHolder(binding.root) {
         fun bind(transaction: Transaction) {
             val context = binding.root.context
             val amountText = String.format(Locale.getDefault(), "₹ %.2f", transaction.amount)
@@ -44,6 +47,8 @@ class TransactionAdapter : ListAdapter<Transaction, TransactionAdapter.Transacti
             val smsDateFormat = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.getDefault())
             smsDateFormat.timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
             binding.smsDate.text = smsDateFormat.format(Date(transaction.smsDate))
+
+            binding.transactionCategory.setOnClickListener { onCategoryClick(transaction) }
         }
     }
 

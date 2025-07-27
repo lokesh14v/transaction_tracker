@@ -11,28 +11,39 @@ import java.util.Locale
 import java.util.regex.Pattern
 import android.widget.Toast
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
 class SmsReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context?, intent: Intent?) {
         if (Telephony.Sms.Intents.SMS_RECEIVED_ACTION == intent?.action) {
             val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
-            for (smsMessage in messages) {
-                val messageBody = smsMessage.messageBody
-                val sender = smsMessage.displayOriginatingAddress
-                Log.d("SmsReceiver", "SMS received from: $sender, Body: $messageBody")
+            val applicationContext = context?.applicationContext as? MyApplication
+            val userCategoryMappingDao = applicationContext?.appDatabase?.userCategoryMappingDao()
 
-                val transaction = parseSms(messageBody, smsMessage.timestampMillis, sender, context)
-                if (transaction != null) {
-                    Log.d("SmsReceiver", "Parsed Transaction: $transaction")
-                    (context?.applicationContext as? MyApplication)
-                        ?.transactionViewModel
-                        ?.addTransaction(transaction)
+            CoroutineScope(Dispatchers.IO).launch {
+                for (smsMessage in messages) {
+                    val messageBody = smsMessage.messageBody
+                    val sender = smsMessage.displayOriginatingAddress
+                    Log.d("SmsReceiver", "SMS received from: $sender, Body: $messageBody")
+
+                    if (userCategoryMappingDao != null) {
+                        val transaction = parseSms(messageBody, smsMessage.timestampMillis, sender, context, userCategoryMappingDao)
+                        if (transaction != null) {
+                            Log.d("SmsReceiver", "Parsed Transaction: $transaction")
+                            applicationContext
+                                ?.transactionViewModel
+                                ?.addTransaction(transaction)
+                        }
+                    }
                 }
             }
         }
     }
 
-    private fun parseSms(messageBody: String, timestamp: Long, senderAddress: String, context: Context?): Transaction? {
+    private suspend fun parseSms(messageBody: String, timestamp: Long, senderAddress: String, context: Context?, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Regex("""(?:Rs\.?|INR)\s?([\d,]+(?:\.\d{1,2})?)""")
         val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
         val bankPattern = Pattern.compile("""(?:from|in)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card)""")
@@ -69,7 +80,7 @@ class SmsReceiver : BroadcastReceiver() {
             Toast.makeText(it, "Merchant: $finalMerchant", Toast.LENGTH_SHORT).show()
         }
 
-        val category = classifyTransaction(finalMerchant, messageBody)
+        val category = classifyTransaction(finalMerchant, messageBody, userCategoryMappingDao)
         val bank = if (bankMatcher.find()) bankMatcher.group(1) else senderAddress
         val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
         val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
@@ -97,11 +108,17 @@ class SmsReceiver : BroadcastReceiver() {
         } else null
     }
 
-    private fun classifyTransaction(merchant: String, originalMessage: String): TransactionCategory {
+    private suspend fun classifyTransaction(merchant: String, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
         val lowerMerchant = merchant.lowercase()
         val lowerMessage = originalMessage.lowercase()
 
-        return when {
+        // First, check user-defined mappings
+        val userMapping = userCategoryMappingDao.getMappingForText(lowerMerchant) ?: userCategoryMappingDao.getMappingForText(lowerMessage)
+        if (userMapping != null) {
+            return userMapping.category
+        }
+
+        val detectedCategory = when {
             lowerMerchant.contains("redbus") -> TransactionCategory.TRAVEL
             lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
             lowerMessage.contains("upi/p2a") -> TransactionCategory.SPEND_TO_PERSON
@@ -129,5 +146,13 @@ class SmsReceiver : BroadcastReceiver() {
 
             else -> TransactionCategory.UNKNOWN
         }
+
+        if (detectedCategory == TransactionCategory.UNKNOWN) {
+            // Placeholder for notification logic
+            Log.d("SmsReceiver", "Unknown category detected for: $originalMessage. Prompt user for category.")
+            // In a real app, you would trigger a notification here
+            // For example: NotificationHelper.showCategoryPromptNotification(context, originalMessage, finalMerchant)
+        }
+        return detectedCategory
     }
 }

@@ -2,4 +2,6 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="color_spend">#FFCC0000</color>
+    <color name="color_credit">#FF669900</color>
 </resources>
