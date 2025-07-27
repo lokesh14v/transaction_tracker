@@ -8,11 +8,11 @@ import android.widget.ArrayAdapter
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
-import com.example.myapplication.AppDatabase
-import com.example.myapplication.TransactionCategory
-import com.example.myapplication.TransactionViewModel
-import com.example.myapplication.TransactionViewModelFactory
-import com.example.myapplication.databinding.FragmentTransactionChartBinding
+import com.example.ExpenseTracker.AppDatabase
+import com.example.ExpenseTracker.TransactionCategory
+import com.example.ExpenseTracker.TransactionViewModel
+import com.example.ExpenseTracker.TransactionViewModelFactory
+import com.example.ExpenseTracker.databinding.FragmentTransactionChartBinding
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry

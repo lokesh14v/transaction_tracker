@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.example.ExpenseTracker
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,8 +9,11 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.myapplication.databinding.FragmentTransactionListBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.example.ExpenseTracker.databinding.FragmentTransactionListBinding
 import com.google.android.material.datepicker.MaterialDatePicker
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -23,6 +26,7 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
     private val binding get() = _binding!!
     private lateinit var transactionAdapter: TransactionAdapter
     private lateinit var viewModel: TransactionViewModel
+    private var currentTransactionForCategorySelection: Transaction? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -39,6 +43,7 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
 
         transactionAdapter = TransactionAdapter { transaction ->
             // Handle category click
+            currentTransactionForCategorySelection = transaction
             val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, this)
             dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
         }
@@ -130,6 +135,14 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
 
     override fun onNewCategoryAdded(transactionId: Int, newCategoryName: String) {
         viewModel.updateTransactionCategory(transactionId, TransactionCategory.UNKNOWN, newCategoryName)
+        // Re-show the category selection dialog to refresh the list after a short delay
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
+            kotlinx.coroutines.delay(200) // Small delay to allow database update to propagate
+            currentTransactionForCategorySelection?.let {
+                val dialog = CategorySelectionDialogFragment.newInstance(it.id, it.category, this@TransactionListFragment)
+                dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
+            }
+        }
     }
 
     override fun onDestroyView() {

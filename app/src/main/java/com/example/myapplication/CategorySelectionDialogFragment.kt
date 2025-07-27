@@ -4,10 +4,10 @@ import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
-import com.example.myapplication.CategorySelectionViewModel
-import com.example.myapplication.CategorySelectionViewModelFactory
-import com.example.myapplication.MyApplication
-import com.example.myapplication.TransactionCategory
+import com.example.ExpenseTracker.CategorySelectionViewModel
+import com.example.ExpenseTracker.CategorySelectionViewModelFactory
+import com.example.ExpenseTracker.MyApplication
+import com.example.ExpenseTracker.TransactionCategory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

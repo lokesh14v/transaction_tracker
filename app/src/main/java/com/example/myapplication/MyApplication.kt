@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.example.ExpenseTracker
 
 import android.app.Application
 import androidx.lifecycle.ViewModelProvider

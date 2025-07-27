@@ -1,11 +1,11 @@
-package com.example.myapplication
+package com.example.ExpenseTracker
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.myapplication.databinding.ItemTransactionBinding
+import com.example.ExpenseTracker.databinding.ItemTransactionBinding
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
