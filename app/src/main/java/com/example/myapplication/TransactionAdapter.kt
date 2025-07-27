@@ -40,7 +40,7 @@ class TransactionAdapter @JvmOverloads constructor(private val onCategoryClick: 
 
             binding.transactionType.text = "(${transaction.type})"
             binding.transactionMerchant.text = "Merchant: ${transaction.merchant ?: "Unknown"}"
-            binding.transactionCategory.text = transaction.category.name
+            binding.transactionCategory.text = transaction.userDefinedCategoryName ?: transaction.category.name
             binding.transactionBank.text = "Bank: ${transaction.bank ?: "N/A"}"
             binding.transactionAccountNumber.text = "A/c: ${transaction.accountNumber ?: "N/A"}"
 

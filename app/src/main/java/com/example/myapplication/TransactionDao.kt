@@ -20,6 +20,6 @@ interface TransactionDao {
     @Query("SELECT DISTINCT bank FROM transactions WHERE bank IS NOT NULL")
     fun getDistinctBanks(): LiveData<List<String>>
 
-    @Query("UPDATE transactions SET category = :newCategory WHERE id = :transactionId")
-    suspend fun updateCategory(transactionId: Int, newCategory: TransactionCategory)
+    @Query("UPDATE transactions SET category = :newCategory, userDefinedCategoryName = :userDefinedCategoryName WHERE id = :transactionId")
+    suspend fun updateCategory(transactionId: Int, newCategory: TransactionCategory, userDefinedCategoryName: String?)
 }

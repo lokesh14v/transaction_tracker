@@ -17,7 +17,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.CategorySelectedListener {
+class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.CategorySelectedListener, AddNewCategoryDialogFragment.AddNewCategoryListener {
 
     private var _binding: FragmentTransactionListBinding? = null
     private val binding get() = _binding!!
@@ -119,8 +119,17 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
         binding.dateRangeTextView.text = "${sdf.format(Date(startDate))} - ${sdf.format(Date(endDate))}"
     }
 
-    override fun onCategorySelected(transactionId: Int, newCategory: TransactionCategory) {
-        viewModel.updateTransactionCategory(transactionId, newCategory)
+    override fun onCategorySelected(transactionId: Int, newCategory: TransactionCategory, userDefinedCategoryName: String?) {
+        viewModel.updateTransactionCategory(transactionId, newCategory, userDefinedCategoryName)
+    }
+
+    override fun onAddNewCategoryRequested(transactionId: Int) {
+        val dialog = AddNewCategoryDialogFragment.newInstance(transactionId, this)
+        dialog.show(parentFragmentManager, "AddNewCategoryDialogFragment")
+    }
+
+    override fun onNewCategoryAdded(transactionId: Int, newCategoryName: String) {
+        viewModel.updateTransactionCategory(transactionId, TransactionCategory.UNKNOWN, newCategoryName)
     }
 
     override fun onDestroyView() {

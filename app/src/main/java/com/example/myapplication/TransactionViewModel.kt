@@ -51,9 +51,9 @@ class TransactionViewModel(private val transactionDao: TransactionDao) : ViewMod
         }
     }
 
-    fun updateTransactionCategory(transactionId: Int, newCategory: TransactionCategory) {
+    fun updateTransactionCategory(transactionId: Int, newCategory: TransactionCategory, userDefinedCategoryName: String?) {
         viewModelScope.launch {
-            transactionDao.updateCategory(transactionId, newCategory)
+            transactionDao.updateCategory(transactionId, newCategory, userDefinedCategoryName)
         }
     }
 }
