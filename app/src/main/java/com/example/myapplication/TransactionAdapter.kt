@@ -41,7 +41,8 @@ class TransactionAdapter : ListAdapter<Transaction, TransactionAdapter.Transacti
             binding.transactionBank.text = "Bank: ${transaction.bank ?: "N/A"}"
             binding.transactionAccountNumber.text = "A/c: ${transaction.accountNumber ?: "N/A"}"
 
-            val smsDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            val smsDateFormat = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.getDefault())
+            smsDateFormat.timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
             binding.smsDate.text = smsDateFormat.format(Date(transaction.smsDate))
         }
     }

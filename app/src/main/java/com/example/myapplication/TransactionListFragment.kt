@@ -82,8 +82,19 @@ class TransactionListFragment : Fragment() {
                 .build()
 
         dateRangePicker.addOnPositiveButtonClickListener { selection ->
-            val startDate = selection.first
-            val endDate = selection.second
+            var startDate = selection.first
+            var endDate = selection.second
+
+            // If only one day is selected, adjust endDate to be the end of that day
+            if (startDate == endDate) {
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = endDate
+                calendar.set(Calendar.HOUR_OF_DAY, 23)
+                calendar.set(Calendar.MINUTE, 59)
+                calendar.set(Calendar.SECOND, 59)
+                calendar.set(Calendar.MILLISECOND, 999)
+                endDate = calendar.timeInMillis
+            }
             viewModel.loadTransactionsByDateRange(startDate, endDate)
             updateDateRangeText(startDate, endDate)
         }
