@@ -13,6 +13,7 @@ import com.example.ExpenseTracker.databinding.ActivityMainBinding
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.google.android.material.datepicker.MaterialDatePicker
 import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
@@ -44,6 +45,10 @@ class MainActivity : AppCompatActivity() {
             }
         }.attach()
 
+        viewModel.dateRange.observe(this) { dateRange ->
+            binding.chipLast30Days.isChecked = dateRange != null
+        }
+
         binding.chipLast30Days.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 val calendar = Calendar.getInstance()
@@ -56,7 +61,37 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.dateRangeIcon.setOnClickListener {
+            showDateRangePicker()
+        }
+
         checkAndRequestPermissions()
+    }
+
+    private fun showDateRangePicker() {
+        val dateRangePicker =
+            MaterialDatePicker.Builder.dateRangePicker()
+                .setTitleText("Select dates")
+                .build()
+
+        dateRangePicker.addOnPositiveButtonClickListener { selection ->
+            var startDate = selection.first
+            var endDate = selection.second
+
+            // If only one day is selected, adjust endDate to be the end of that day
+            if (startDate == endDate) {
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = endDate
+                calendar.set(Calendar.HOUR_OF_DAY, 23)
+                calendar.set(Calendar.MINUTE, 59)
+                calendar.set(Calendar.SECOND, 59)
+                calendar.set(Calendar.MILLISECOND, 999)
+                endDate = calendar.timeInMillis
+            }
+            viewModel.setDateRange(startDate, endDate)
+        }
+
+        dateRangePicker.show(supportFragmentManager, "dateRangePicker")
     }
 
     private fun checkAndRequestPermissions() {
