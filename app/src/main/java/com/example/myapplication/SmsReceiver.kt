@@ -63,17 +63,14 @@ class SmsReceiver : BroadcastReceiver() {
 
         if (amountMatcher.find()) {
             val amount = amountMatcher.group(1).replace(",", "").toDouble()
-            val type = if (typeMatcher.find()) {
-                when (typeMatcher.group(1).lowercase()) {
-                    "credited", "received", "added", "deposit", "refund", "credit" -> TransactionType.CREDIT
-                    "debited", "spent", "paid", "deducted", "purchase", "payment", "withdrawal" -> TransactionType.DEBIT
-                    else -> TransactionType.UNKNOWN
+            if (amount > 0) {
+                val type = if (sms.lowercase().contains("credited") || sms.lowercase().contains("deposited") || sms.lowercase().contains("credit") || sms.lowercase().contains("deposit") || sms.lowercase().contains("refund")) {
+                    TransactionType.CREDIT
+                } else if (sms.lowercase().contains("debited") || sms.lowercase().contains("spent") || sms.lowercase().contains("paid") || sms.lowercase().contains("deducted") || sms.lowercase().contains("purchase") || sms.lowercase().contains("payment") || sms.lowercase().contains("withdrawal")) {
+                    TransactionType.DEBIT
+                } else {
+                    TransactionType.UNKNOWN
                 }
-            } else {
-                if (sms.lowercase().contains("debited")) TransactionType.DEBIT
-                else if (sms.lowercase().contains("credited")) TransactionType.CREDIT
-                else TransactionType.UNKNOWN
-            }
 
             val merchantMatcher = merchantPattern.matcher(sms)
             val upiMatcher = upiPattern.matcher(sms)
@@ -112,17 +109,18 @@ class SmsReceiver : BroadcastReceiver() {
             val finalCategory = classifyTransaction(finalMerchant, sms, userCategoryMappingDao)
 
             val transaction = Transaction(
-                amount = amount,
-                merchant = finalMerchant,
-                smsDate = timestamp,
-                type = type,
-                originalMessage = sms,
-                bank = bank,
-                accountNumber = accountNumber,
-                transactionDateTime = transactionDateTime,
-                category = finalCategory
-            )
-            return transaction
+                    amount = amount,
+                    merchant = finalMerchant,
+                    smsDate = timestamp,
+                    type = type,
+                    originalMessage = sms,
+                    bank = bank,
+                    accountNumber = accountNumber,
+                    transactionDateTime = transactionDateTime,
+                    category = finalCategory
+                )
+                return transaction
+            }
         }
         return null
     }
