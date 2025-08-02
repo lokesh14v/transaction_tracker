@@ -70,13 +70,13 @@ object SmsManager {
     @SuppressLint("SuspiciousIndentation")
     suspend fun parseSms(context: Context, sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
-        val merchantPattern = Pattern.compile("""(?:at|to)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")
+        val merchantPattern = Pattern.compile("""(?:at|for)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
         val bankPattern = Pattern.compile("""(?:from|in|at|with|on)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card|- Axis Bank)""")
         val upiPattern = Pattern.compile("""UPI/(?:P2M|P2A)/(?:[^/]+/)*([^/]+)""", Pattern.CASE_INSENSITIVE)
         val accountNumberPattern = Pattern.compile("""A/c(?: no\.)? ([X*\d]+)""")
         val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2}(?:,\s*\d{2}:\d{2}:\d{2})?|\d{2}-\w{3}-\d{2})""")
-        val infoMerchantPattern = Pattern.compile("""Info:([^/]+)""")
+        val infoMerchantPattern = Pattern.compile("""Info[:\s-]+\s*([^.]+)""")
         val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?:\s+Not you\?|\.\s|$)""")
 
         val amountMatcher = amountPattern.matcher(sms)
@@ -102,11 +102,21 @@ object SmsManager {
                 ?: infoMerchantPattern.matcher(sms).let {
                     if (it.find()) {
                         val merchantGroup = it.group(1)
-                        val parts = merchantGroup?.split("-")
-                        when {
-                            (parts?.size ?: 0) > 1 -> parts?.getOrNull(1)?.trim()
-                            else -> parts?.firstOrNull()?.trim()
+                        val extracted: String?
+
+                        if (merchantGroup?.contains("/") == true) {
+                            extracted = merchantGroup.split("/").lastOrNull()?.trim()
+                        } else if (merchantGroup?.contains("-") == true) {
+                            val firstHyphenIndex = merchantGroup.indexOf("-")
+                            extracted = if (firstHyphenIndex != -1 && firstHyphenIndex < merchantGroup.length - 1) {
+                                merchantGroup.substring(firstHyphenIndex + 1).trim()
+                            } else {
+                                merchantGroup.trim()
+                            }
+                        } else {
+                            extracted = merchantGroup?.trim()
                         }
+                        extracted
                     } else null
                 }
                 ?: forMerchantPattern.matcher(sms).let { if (it.find()) it.group(1)?.trim() else null }
