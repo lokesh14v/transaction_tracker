@@ -31,9 +31,7 @@ class CategorySelectionDialogFragment : DialogFragment() {
         val merchant = arguments?.getString(ARG_MERCHANT)
         val originalMessage = arguments?.getString(ARG_ORIGINAL_MESSAGE)
 
-        val userCategoryMappingDao = (requireActivity().application as MyApplication).appDatabase.userCategoryMappingDao()
-        val factory = CategorySelectionViewModelFactory(userCategoryMappingDao)
-        viewModel = ViewModelProvider(this, factory).get(CategorySelectionViewModel::class.java)
+        viewModel = ViewModelProvider(requireParentFragment()).get(CategorySelectionViewModel::class.java)
 
         val loadingDialog = AlertDialog.Builder(requireContext())
             .setTitle("Loading Categories...")
@@ -44,8 +42,12 @@ class CategorySelectionDialogFragment : DialogFragment() {
             loadingDialog.dismiss()
 
             val categoriesArray = allCategories.toTypedArray()
+            val userDefinedCategoryName = arguments?.getString(ARG_USER_DEFINED_CATEGORY_NAME)
+
             val selectedItem = if (currentCategory != null && currentCategory != TransactionCategory.UNKNOWN) {
                 allCategories.indexOf(currentCategory.name)
+            } else if (currentCategory == TransactionCategory.UNKNOWN && userDefinedCategoryName != null) {
+                allCategories.indexOf(userDefinedCategoryName)
             } else {
                 -1 // No pre-selection if current is UNKNOWN or null
             }
@@ -85,8 +87,9 @@ class CategorySelectionDialogFragment : DialogFragment() {
         private const val ARG_AMOUNT = "amount"
         private const val ARG_MERCHANT = "merchant"
         private const val ARG_ORIGINAL_MESSAGE = "original_message"
+        private const val ARG_USER_DEFINED_CATEGORY_NAME = "user_defined_category_name"
 
-        fun newInstance(transactionId: Int, currentCategory: TransactionCategory, amount: Double, merchant: String?, originalMessage: String?, listener: CategorySelectedListener): CategorySelectionDialogFragment {
+        fun newInstance(transactionId: Int, currentCategory: TransactionCategory, amount: Double, merchant: String?, originalMessage: String?, userDefinedCategoryName: String?, listener: CategorySelectedListener): CategorySelectionDialogFragment {
             val fragment = CategorySelectionDialogFragment()
             val args = Bundle().apply {
                 putInt(ARG_TRANSACTION_ID, transactionId)

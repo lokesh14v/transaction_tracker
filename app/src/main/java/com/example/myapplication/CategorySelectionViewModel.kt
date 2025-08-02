@@ -16,13 +16,11 @@ class CategorySelectionViewModel(private val userCategoryMappingDao: UserCategor
         loadCategories()
     }
 
-    private fun loadCategories() {
+    fun loadCategories() {
         viewModelScope.launch {
             val predefinedCategories = TransactionCategory.entries.filter { it != TransactionCategory.UNKNOWN }.map { it.name }
             val userDefinedCategories = userCategoryMappingDao.getAllMappings().map { it.pattern }
-            val allCategories = mutableListOf<String>()
-            allCategories.addAll(predefinedCategories)
-            allCategories.addAll(userDefinedCategories)
+            val allCategories = (predefinedCategories + userDefinedCategories).distinct().sorted()
             _categories.postValue(allCategories)
         }
     }

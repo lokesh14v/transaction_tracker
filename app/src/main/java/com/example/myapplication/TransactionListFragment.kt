@@ -29,6 +29,7 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
     private val binding get() = _binding!!
     private lateinit var transactionAdapter: TransactionAdapter
     private lateinit var viewModel: TransactionViewModel
+    private lateinit var categorySelectionViewModel: CategorySelectionViewModel
     private var currentTransactionForCategorySelection: Transaction? = null
     private val categorizationQueue: Queue<Transaction> = LinkedList()
     private var isDialogShowing: Boolean = false
@@ -50,8 +51,8 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
             onCategoryClick = { transaction ->
                 // Handle category click
                 currentTransactionForCategorySelection = transaction
-                val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, transaction.amount, transaction.merchant, transaction.originalMessage, this)
-                dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
+                val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, transaction.amount, transaction.merchant, transaction.originalMessage, transaction.userDefinedCategoryName, this)
+                dialog.show(childFragmentManager, "CategorySelectionDialogFragment")
             },
             onDeleteClick = { transaction ->
                 viewModel.delete(transaction)
@@ -63,6 +64,10 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
         }
 
         viewModel = ViewModelProvider(requireActivity()).get(TransactionViewModel::class.java)
+
+        val userCategoryMappingDao = (requireActivity().application as MyApplication).appDatabase.userCategoryMappingDao()
+        val categorySelectionViewModelFactory = CategorySelectionViewModelFactory(userCategoryMappingDao)
+        categorySelectionViewModel = ViewModelProvider(this, categorySelectionViewModelFactory).get(CategorySelectionViewModel::class.java)
 
         viewModel.transactions.observe(viewLifecycleOwner) { transactions ->
             transactionAdapter.submitList(transactions)
@@ -104,8 +109,8 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
         if (!isDialogShowing && categorizationQueue.isNotEmpty()) {
             val transaction = categorizationQueue.poll()
             currentTransactionForCategorySelection = transaction
-            val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, transaction.amount, transaction.merchant, transaction.originalMessage, this)
-            dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
+            val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, transaction.amount, transaction.merchant, transaction.originalMessage, transaction.userDefinedCategoryName, this)
+            dialog.show(childFragmentManager, "CategorySelectionDialogFragment")
             isDialogShowing = true
         }
     }
@@ -119,6 +124,7 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
         viewModel.updateTransactionCategory(transactionId, newCategory, userDefinedCategoryName)
         isDialogShowing = false
         showNextCategoryDialog()
+        viewModel.loadTransactions() // Refresh transactions to reflect the category change
     }
 
     override fun onAddNewCategoryRequested(transactionId: Int) {
@@ -127,13 +133,13 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
     }
 
     override fun onNewCategoryAdded(transactionId: Int, newCategoryName: String) {
-        viewModel.updateTransactionCategory(transactionId, TransactionCategory.UNKNOWN, newCategoryName)
+        categorySelectionViewModel.addNewUserCategory(newCategoryName.uppercase())
         // Re-show the category selection dialog to refresh the list after a short delay
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
             kotlinx.coroutines.delay(200) // Small delay to allow database update to propagate
             currentTransactionForCategorySelection?.let {
-                val dialog = CategorySelectionDialogFragment.newInstance(it.id, it.category, it.amount, it.merchant, it.originalMessage, this@TransactionListFragment)
-                dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
+                val dialog = CategorySelectionDialogFragment.newInstance(it.id, it.category, it.amount, it.merchant, it.originalMessage, it.userDefinedCategoryName, this@TransactionListFragment)
+                dialog.show(childFragmentManager, "CategorySelectionDialogFragment")
             }
             isDialogShowing = false
             showNextCategoryDialog()
