@@ -25,9 +25,9 @@ class AddNewCategoryDialogFragment : DialogFragment() {
         builder.setView(input)
 
         builder.setPositiveButton("Add") { dialog, _ ->
-            val newCategoryName = input.text.toString().trim()
-            if (newCategoryName.isNotEmpty()) {
-                listener?.onNewCategoryAdded(transactionId, newCategoryName)
+            val categoryName = input.text.toString().trim().uppercase()
+            if (categoryName.isNotEmpty()) {
+                listener?.onNewCategoryAdded(transactionId, categoryName)
             }
             dialog.dismiss()
         }
