@@ -20,6 +20,9 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+import java.util.LinkedList
+import java.util.Queue
+
 class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.CategorySelectedListener, AddNewCategoryDialogFragment.AddNewCategoryListener {
 
     private var _binding: FragmentTransactionListBinding? = null
@@ -27,6 +30,8 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
     private lateinit var transactionAdapter: TransactionAdapter
     private lateinit var viewModel: TransactionViewModel
     private var currentTransactionForCategorySelection: Transaction? = null
+    private val categorizationQueue: Queue<Transaction> = LinkedList()
+    private var isDialogShowing: Boolean = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -45,7 +50,7 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
             onCategoryClick = { transaction ->
                 // Handle category click
                 currentTransactionForCategorySelection = transaction
-                val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, this)
+                val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, transaction.amount, transaction.merchant, transaction.originalMessage, this)
                 dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
             },
             onDeleteClick = { transaction ->
@@ -61,6 +66,14 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
 
         viewModel.transactions.observe(viewLifecycleOwner) { transactions ->
             transactionAdapter.submitList(transactions)
+
+            // Add NEFT transactions that need categorization to the queue
+            transactions.forEach { transaction ->
+                if (transaction.merchant == "NEFT transaction via HDFC Bank Online Banking" && transaction.category == TransactionCategory.UNKNOWN && !categorizationQueue.contains(transaction)) {
+                    categorizationQueue.offer(transaction)
+                }
+            }
+            showNextCategoryDialog()
         }
 
         viewModel.totalSpend.observe(viewLifecycleOwner) { totalSpend ->
@@ -87,6 +100,16 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
         viewModel.loadTransactions()
     }
 
+    private fun showNextCategoryDialog() {
+        if (!isDialogShowing && categorizationQueue.isNotEmpty()) {
+            val transaction = categorizationQueue.poll()
+            currentTransactionForCategorySelection = transaction
+            val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, transaction.amount, transaction.merchant, transaction.originalMessage, this)
+            dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
+            isDialogShowing = true
+        }
+    }
+
     private fun updateDateRangeText(startDate: Long, endDate: Long) {
         val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         binding.dateRangeTextView.text = "${sdf.format(Date(startDate))} - ${sdf.format(Date(endDate))}"
@@ -94,6 +117,8 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
 
     override fun onCategorySelected(transactionId: Int, newCategory: TransactionCategory, userDefinedCategoryName: String?) {
         viewModel.updateTransactionCategory(transactionId, newCategory, userDefinedCategoryName)
+        isDialogShowing = false
+        showNextCategoryDialog()
     }
 
     override fun onAddNewCategoryRequested(transactionId: Int) {
@@ -107,9 +132,11 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
             kotlinx.coroutines.delay(200) // Small delay to allow database update to propagate
             currentTransactionForCategorySelection?.let {
-                val dialog = CategorySelectionDialogFragment.newInstance(it.id, it.category, this@TransactionListFragment)
+                val dialog = CategorySelectionDialogFragment.newInstance(it.id, it.category, it.amount, it.merchant, it.originalMessage, this@TransactionListFragment)
                 dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
             }
+            isDialogShowing = false
+            showNextCategoryDialog()
         }
     }
 

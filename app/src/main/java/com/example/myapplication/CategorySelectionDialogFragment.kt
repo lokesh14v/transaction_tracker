@@ -27,6 +27,9 @@ class CategorySelectionDialogFragment : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val transactionId = arguments?.getInt(ARG_TRANSACTION_ID) ?: -1
         val currentCategory = arguments?.getSerializable(ARG_CURRENT_CATEGORY) as? TransactionCategory
+        val amount = arguments?.getDouble(ARG_AMOUNT) ?: 0.0
+        val merchant = arguments?.getString(ARG_MERCHANT)
+        val originalMessage = arguments?.getString(ARG_ORIGINAL_MESSAGE)
 
         val userCategoryMappingDao = (requireActivity().application as MyApplication).appDatabase.userCategoryMappingDao()
         val factory = CategorySelectionViewModelFactory(userCategoryMappingDao)
@@ -47,8 +50,10 @@ class CategorySelectionDialogFragment : DialogFragment() {
                 -1 // No pre-selection if current is UNKNOWN or null
             }
 
+            val dialogTitle = "Categorize: ₹%.2f - %s\n%s".format(amount, merchant ?: "Unknown", originalMessage ?: "")
+
             val alertDialog = AlertDialog.Builder(requireContext())
-                .setTitle("Select Category")
+                .setTitle(dialogTitle)
                 .setSingleChoiceItems(categoriesArray, selectedItem) { dialog, which ->
                     val selectedCategoryName = categoriesArray[which]
                     val newCategory = if (TransactionCategory.entries.any { it.name == selectedCategoryName }) {
@@ -77,12 +82,18 @@ class CategorySelectionDialogFragment : DialogFragment() {
     companion object {
         private const val ARG_TRANSACTION_ID = "transaction_id"
         private const val ARG_CURRENT_CATEGORY = "current_category"
+        private const val ARG_AMOUNT = "amount"
+        private const val ARG_MERCHANT = "merchant"
+        private const val ARG_ORIGINAL_MESSAGE = "original_message"
 
-        fun newInstance(transactionId: Int, currentCategory: TransactionCategory, listener: CategorySelectedListener): CategorySelectionDialogFragment {
+        fun newInstance(transactionId: Int, currentCategory: TransactionCategory, amount: Double, merchant: String?, originalMessage: String?, listener: CategorySelectedListener): CategorySelectionDialogFragment {
             val fragment = CategorySelectionDialogFragment()
             val args = Bundle().apply {
                 putInt(ARG_TRANSACTION_ID, transactionId)
                 putSerializable(ARG_CURRENT_CATEGORY, currentCategory)
+                putDouble(ARG_AMOUNT, amount)
+                putString(ARG_MERCHANT, merchant)
+                putString(ARG_ORIGINAL_MESSAGE, originalMessage)
             }
             fragment.arguments = args
             fragment.listener = listener

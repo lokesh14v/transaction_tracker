@@ -9,5 +9,6 @@ class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         appDatabase = AppDatabase.getDatabase(this)
+        NotificationHelper.createNotificationChannel(this)
     }
 }

@@ -8,6 +8,8 @@ import java.text.SimpleDateFormat
 import java.text.ParseException
 import java.util.Locale
 
+
+
 object SmsManager {
 
     private const val TAG = "SmsManager"
@@ -20,7 +22,7 @@ object SmsManager {
 
         for ((smsBody, sender, timestamp) in smsListWithSender) {
             if (transactionDao.getTransactionByMessage(smsBody) == null) {
-                parseSms(smsBody, sender, timestamp, userCategoryMappingDao)?.let {
+                parseSms(context, smsBody, sender, timestamp, userCategoryMappingDao)?.let {
                     transactionDao.insert(it)
                     processedTransactions++
                 }
@@ -66,7 +68,7 @@ object SmsManager {
         return null }
 
     @SuppressLint("SuspiciousIndentation")
-    suspend fun parseSms(sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
+    suspend fun parseSms(context: Context, sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
         val merchantPattern = Pattern.compile("""(?:at|to)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
@@ -75,7 +77,7 @@ object SmsManager {
         val accountNumberPattern = Pattern.compile("""A/c(?: no\.)? ([X*\d]+)""")
         val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2}(?:,\s*\d{2}:\d{2}:\d{2})?|\d{2}-\w{3}-\d{2})""")
         val infoMerchantPattern = Pattern.compile("""Info:([^/]+)""")
-        val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?=\.\s|$)""")
+        val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?:\s+Not you\?|\.\s|$)""")
 
         val amountMatcher = amountPattern.matcher(sms)
 
@@ -135,7 +137,12 @@ object SmsManager {
                 }
             } ?: timestamp
 
-            val finalCategory = classifyTransaction(finalMerchant, sms, userCategoryMappingDao)
+            var finalCategory = classifyTransaction( finalMerchant, sms, userCategoryMappingDao)
+
+            // Override category if merchant is specific NEFT transaction
+            if (finalMerchant == "NEFT transaction via HDFC Bank Online Banking") {
+                finalCategory = TransactionCategory.UNKNOWN
+            }
 
             val transaction = Transaction(
                     amount = amount,
@@ -148,7 +155,11 @@ object SmsManager {
                     transactionDateTime = transactionDateTime,
                     category = finalCategory
                 )
-                return transaction
+
+            if (finalCategory == TransactionCategory.UNKNOWN) {
+                NotificationHelper.sendCategorizationNotification(context, transaction)
+            }
+            return transaction
             }
         }
         return null
@@ -202,12 +213,6 @@ object SmsManager {
             else -> TransactionCategory.UNKNOWN
         }
 
-        if (detectedCategory == TransactionCategory.UNKNOWN) {
-            // Placeholder for notification logic
-            // Log.d(TAG, "Unknown category detected for: $originalMessage. Prompt user for category.")
-            // In a real app, you would trigger a notification here
-            // For example: NotificationHelper.showCategoryPromptNotification(context, originalMessage, finalMerchant)
-        }
         return detectedCategory
     }
 }

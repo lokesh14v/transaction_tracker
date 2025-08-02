@@ -26,7 +26,7 @@ class SmsReceiver : BroadcastReceiver() {
                     Log.d("SmsReceiver", "SMS received from: $sender, Body: $messageBody")
 
                     if (userCategoryMappingDao != null) {
-                        val transaction = SmsManager.parseSms(messageBody, sender, smsMessage.timestampMillis, userCategoryMappingDao)
+                        val transaction = SmsManager.parseSms(context, messageBody, sender, smsMessage.timestampMillis, userCategoryMappingDao)
                         if (transaction != null) {
                             Log.d("SmsReceiver", "Parsed Transaction: $transaction")
                             applicationContext?.appDatabase?.transactionDao()?.insert(transaction)
