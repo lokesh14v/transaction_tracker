@@ -1,13 +1,7 @@
 package com.example.ExpenseTracker
-
 import android.content.Context
-import android.net.Uri
 import androidx.core.net.toUri
 import android.provider.Telephony
-import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.util.regex.Pattern
 import java.text.SimpleDateFormat
 import java.text.ParseException
@@ -82,7 +76,6 @@ object SmsManager {
         val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?=\.\s|$)""")
 
         val amountMatcher = amountPattern.matcher(sms)
-        val typeMatcher = typePattern.matcher(sms)
 
         if (amountMatcher.find()) {
             val amount = amountMatcher.group(1).replace(",", "").toDouble()
@@ -159,7 +152,7 @@ object SmsManager {
         return null
     }
 
-    private suspend fun classifyTransaction(merchant: String?, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
+    suspend fun classifyTransaction(merchant: String?, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
         val lowerMerchant = merchant?.lowercase() ?: ""
         val lowerMessage = originalMessage.lowercase()
 
