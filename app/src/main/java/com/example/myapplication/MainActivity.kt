@@ -68,6 +68,15 @@ class MainActivity : AppCompatActivity() {
             showDateRangePicker()
         }
 
+        binding.btnReload.setOnClickListener {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val transactionDao = AppDatabase.getDatabase(this@MainActivity).transactionDao()
+                transactionDao.clearAllTransactions()
+                SmsManager.syncSms(this@MainActivity)
+                viewModel.loadTransactions()
+            }
+        }
+
         checkAndRequestPermissions()
     }
 
