@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.example.ExpenseTracker
 
 import android.app.Dialog
 import android.os.Bundle
@@ -25,9 +25,9 @@ class AddNewCategoryDialogFragment : DialogFragment() {
         builder.setView(input)
 
         builder.setPositiveButton("Add") { dialog, _ ->
-            val newCategoryName = input.text.toString().trim()
-            if (newCategoryName.isNotEmpty()) {
-                listener?.onNewCategoryAdded(transactionId, newCategoryName)
+            val categoryName = input.text.toString().trim().uppercase()
+            if (categoryName.isNotEmpty()) {
+                listener?.onNewCategoryAdded(transactionId, categoryName)
             }
             dialog.dismiss()
         }

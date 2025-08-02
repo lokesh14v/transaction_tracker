@@ -1,0 +1,96 @@
+package com.example.ExpenseTracker
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.example.ExpenseTracker.databinding.ActivityHomeBinding
+import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+class HomeActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityHomeBinding
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        binding = ActivityHomeBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        setSupportActionBar(binding.toolbar)
+
+        val viewPagerAdapter = ViewPagerAdapter(this)
+        binding.viewPager.adapter = viewPagerAdapter
+
+        TabLayoutMediator(binding.tabLayout, binding.viewPager) {
+                tab, position ->
+            tab.text = when (position) {
+                0 -> "Transactions"
+                1 -> "Chart"
+                else -> ""
+            }
+        }.attach()
+
+        checkAndRequestPermissions()
+    }
+
+    private fun checkAndRequestPermissions() {
+        val requiredPermissions = listOf(
+            Manifest.permission.READ_SMS,
+            Manifest.permission.RECEIVE_SMS
+        )
+
+        val permissionsToRequest = requiredPermissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                PERMISSION_REQUEST_CODE
+            )
+        } else {
+            syncSmsAndDisplayCounts()
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                syncSmsAndDisplayCounts()
+            } else {
+                println("SMS permissions denied.")
+                // Show a user-facing message if needed
+            }
+        }
+    }
+
+    private fun syncSmsAndDisplayCounts() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            // This method must ensure:
+            // 1. If the app was just installed, fetch all transaction-related SMS.
+            // 2. If already installed before, only fetch NEW ones.
+            // 3. Check for duplicates in the database and avoid reprocessing.
+            val (smsCount, processedTransactions) = SmsManager.syncSms(this@HomeActivity)
+
+            // Removed UI updates for smsCountTextView and transactionsProcessedTextView
+            // as they are no longer in the layout.
+        }
+    }
+
+    companion object {
+        private const val PERMISSION_REQUEST_CODE = 100
+    }
+}

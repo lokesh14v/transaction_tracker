@@ -1,17 +1,14 @@
-package com.example.myapplication
-
+package com.example.ExpenseTracker
+import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri
 import androidx.core.net.toUri
 import android.provider.Telephony
-import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.util.regex.Pattern
 import java.text.SimpleDateFormat
 import java.text.ParseException
 import java.util.Locale
+
+
 
 object SmsManager {
 
@@ -25,7 +22,7 @@ object SmsManager {
 
         for ((smsBody, sender, timestamp) in smsListWithSender) {
             if (transactionDao.getTransactionByMessage(smsBody) == null) {
-                parseSms(smsBody, sender, timestamp, userCategoryMappingDao)?.let {
+                parseSms(context, smsBody, sender, timestamp, userCategoryMappingDao)?.let {
                     transactionDao.insert(it)
                     processedTransactions++
                 }
@@ -51,75 +48,135 @@ object SmsManager {
                     smsList.add(Triple(body, sender, timestamp))
                 }
             } else {
-                Log.e(TAG, "SMS body, address, or date column not found")
+                // Log.e(TAG, "SMS body, address, or date column not found")
             }
         }
         return smsList
     }
+    fun extractBankNameWithRegexValidation(input: String): String? {     // Regex to validate the basic structure: XX-YYYYYY-Z (approx)
+        // This regex captures the middle part.
+        val formatRegex = Regex("""^[A-Z]{2,}-([A-Z0-9]+?)-[A-Z]$""") // Adjust based on exact rules for prefix/suffix
+        val matchResult = formatRegex.find(input)
+        if (matchResult != null) {
+            val potentialBankCode = matchResult.groups[1]?.value // Get the captured group
+            if (potentialBankCode != null && potentialBankCode.length > 2) {
+                return potentialBankCode.dropLast(2)
+            } else if (potentialBankCode != null && potentialBankCode.isNotEmpty()) {
+                return potentialBankCode // Or other logic for short codes
+            }
+        }
+        return null }
 
-    private suspend fun parseSms(sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
+    @SuppressLint("SuspiciousIndentation")
+    suspend fun parseSms(context: Context, sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
-        val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
+        val merchantPattern = Pattern.compile("""(?:at|for)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
-        val bankPattern = Pattern.compile("""from\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card)""")
+        val bankPattern = Pattern.compile("""(?:from|in|at|with|on)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card|- Axis Bank)""")
         val upiPattern = Pattern.compile("""UPI/(?:P2M|P2A)/(?:[^/]+/)*([^/]+)""", Pattern.CASE_INSENSITIVE)
-        val accountNumberPattern = Pattern.compile("""A/c no\. ([X*\d]+)""")
-        val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2},\s*\d{2}:\d{2}:\d{2})""")
+        val accountNumberPattern = Pattern.compile("""A/c(?: no\.)? ([X*\d]+)""")
+        val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2}(?:,\s*\d{2}:\d{2}:\d{2})?|\d{2}-\w{3}-\d{2})""")
+        val infoMerchantPattern = Pattern.compile("""Info[:\s-]+\s*([^.]+)""")
+        val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?:\s+Not you\?|\.\s|$)""")
 
         val amountMatcher = amountPattern.matcher(sms)
-        val merchantMatcher = merchantPattern.matcher(sms)
-        val typeMatcher = typePattern.matcher(sms)
-        val bankMatcher = bankPattern.matcher(sms)
-        val upiMatcher = upiPattern.matcher(sms)
-        val accountNumberMatcher = accountNumberPattern.matcher(sms)
-        val dateTimeMatcher = dateTimePattern.matcher(sms)
 
-        if (amountMatcher.find() && typeMatcher.find()) {
+        if (amountMatcher.find()) {
             val amount = amountMatcher.group(1).replace(",", "").toDouble()
-            val typeStr = typeMatcher.group(1)
-            val type = when (typeStr.lowercase()) {
-                "credited", "received", "added", "deposit", "refund", "credit" -> TransactionType.CREDIT
-                "debited", "spent", "paid", "deducted", "purchase", "payment", "withdrawal" -> TransactionType.DEBIT
-                else -> TransactionType.UNKNOWN
+            if (amount > 0) {
+                val type = if (sms.lowercase().contains("credited") || sms.lowercase().contains("deposited") || sms.lowercase().contains("credit") || sms.lowercase().contains("deposit") || sms.lowercase().contains("refund")) {
+                    TransactionType.CREDIT
+                } else if (sms.lowercase().contains("debited") || sms.lowercase().contains("spent") || sms.lowercase().contains("paid") || sms.lowercase().contains("deducted") || sms.lowercase().contains("purchase") || sms.lowercase().contains("payment") || sms.lowercase().contains("withdrawal")) {
+                    TransactionType.DEBIT
+                } else {
+                    TransactionType.UNKNOWN
+                }
+
+            val afterColonMerchantPattern = Pattern.compile(""":\s*after\s+that\s+[A-Z0-9]+-\s*(A-Z)""", Pattern.CASE_INSENSITIVE)
+            val finalMerchant = upiPattern.matcher(sms).let {
+                if (it.find()) {
+                    val merchantGroup = it.group(1)
+                    merchantGroup?.split("Not you?")?.firstOrNull()?.trim()
+                } else null
             }
-            val merchantFromGeneralPattern = if (merchantMatcher.find()) merchantMatcher.group(1) else null
-            val upiMatcherForMerchant = upiPattern.matcher(sms) // Create a new matcher for this specific use
-            val merchantFromUpiPattern = if (upiMatcherForMerchant.find()) upiMatcherForMerchant.group(1) else null
+                ?: infoMerchantPattern.matcher(sms).let {
+                    if (it.find()) {
+                        val merchantGroup = it.group(1)
+                        val extracted: String?
 
-            val finalMerchant = merchantFromUpiPattern ?: merchantFromGeneralPattern ?: "Unknown"
+                        if (merchantGroup?.contains("/") == true) {
+                            extracted = merchantGroup.split("/").lastOrNull()?.trim()
+                        } else if (merchantGroup?.contains("-") == true) {
+                            val firstHyphenIndex = merchantGroup.indexOf("-")
+                            extracted = if (firstHyphenIndex != -1 && firstHyphenIndex < merchantGroup.length - 1) {
+                                merchantGroup.substring(firstHyphenIndex + 1).trim()
+                            } else {
+                                merchantGroup.trim()
+                            }
+                        } else {
+                            extracted = merchantGroup?.trim()
+                        }
+                        extracted
+                    } else null
+                }
+                ?: forMerchantPattern.matcher(sms).let { if (it.find()) it.group(1)?.trim() else null }
+                ?: afterColonMerchantPattern.matcher(sms).let { if (it.find()) it.group(1) else null }
+                ?: merchantPattern.matcher(sms).let { if (it.find()) it.group(1) else null }
+                ?: "Unknown"
 
-            val bank = if (bankMatcher.find()) bankMatcher.group(1) else senderAddress
+            val bankMatcher = bankPattern.matcher(sms)
+            val bank = if (bankMatcher.find()) bankMatcher.group(1).trim() else {
+                extractBankNameWithRegexValidation(senderAddress) ?: senderAddress
+            }
+
+            val accountNumberMatcher = accountNumberPattern.matcher(sms)
             val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
+
+            val dateTimeMatcher = dateTimePattern.matcher(sms)
             val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
-            val transactionDateTime = dateTimeString?.let { 
+            val transactionDateTime = dateTimeString?.let {
                 try {
-                    val format = SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault())
+                    val format = if (it.contains(",")) {
+                        SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault())
+                    } else {
+                        SimpleDateFormat("dd-MMM-yy", Locale.getDefault())
+                    }
                     format.parse(it)?.time
                 } catch (e: ParseException) {
                     null
                 }
+            } ?: timestamp
+
+            var finalCategory = classifyTransaction( finalMerchant, sms, userCategoryMappingDao)
+
+            // Override category if merchant is specific NEFT transaction
+            if (finalMerchant == "NEFT transaction via HDFC Bank Online Banking") {
+                finalCategory = TransactionCategory.UNKNOWN
             }
 
-            val finalCategory = classifyTransaction(finalMerchant, sms, userCategoryMappingDao)
-
             val transaction = Transaction(
-                amount = amount,
-                merchant = finalMerchant,
-                smsDate = timestamp,
-                type = type,
-                originalMessage = sms,
-                bank = bank,
-                accountNumber = accountNumber,
-                transactionDateTime = transactionDateTime,
-                category = finalCategory
-            )
+                    amount = amount,
+                    merchant = finalMerchant,
+                    smsDate = timestamp,
+                    type = type,
+                    originalMessage = sms,
+                    bank = bank,
+                    accountNumber = accountNumber,
+                    transactionDateTime = transactionDateTime,
+                    category = finalCategory
+                )
+
+            if (finalCategory == TransactionCategory.UNKNOWN) {
+                NotificationHelper.sendCategorizationNotification(context, transaction)
+            }
             return transaction
+            }
         }
         return null
     }
 
-    private suspend fun classifyTransaction(merchant: String, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
-        val lowerMerchant = merchant.lowercase()
+    suspend fun classifyTransaction(merchant: String?, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
+        val lowerMerchant = merchant?.lowercase() ?: ""
         val lowerMessage = originalMessage.lowercase()
 
         // First, check user-defined mappings
@@ -130,10 +187,9 @@ object SmsManager {
 
         val detectedCategory = when {
             lowerMerchant.contains("redbus") -> TransactionCategory.TRAVEL
-            lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
             lowerMessage.contains("upi/p2a") -> TransactionCategory.SPEND_TO_PERSON
 
-            listOf("zomato", "swiggy", "restaurant", "cafe", "pizza", "food", "dine").any { lowerMerchant.contains(it) } ->
+            listOf("zomato", "swiggy", "restaurant", "cafe", "pizza", "food", "dine","bake","chicken").any { lowerMerchant.contains(it) } ->
                 TransactionCategory.FOOD
 
             listOf("bar", "pub").any { lowerMerchant.contains(it) } ->
@@ -154,15 +210,19 @@ object SmsManager {
             listOf("pharmacy", "hospital", "clinic", "doctor", "medical").any { lowerMerchant.contains(it) } ->
                 TransactionCategory.HEALTH
 
+            listOf("sumithra").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.MAID
+
+            listOf("rd").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.RD
+            listOf("mutual","mutalfund", "sip", "equity", "debt fund", "hybrid fund", "nav").any { lowerMerchant.contains(it) || lowerMessage.contains(it) } ->
+                TransactionCategory.MUTUAL_FUND
+
+            lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
+
             else -> TransactionCategory.UNKNOWN
         }
 
-        if (detectedCategory == TransactionCategory.UNKNOWN) {
-            // Placeholder for notification logic
-            Log.d(TAG, "Unknown category detected for: $originalMessage. Prompt user for category.")
-            // In a real app, you would trigger a notification here
-            // For example: NotificationHelper.showCategoryPromptNotification(context, originalMessage, finalMerchant)
-        }
         return detectedCategory
     }
 }

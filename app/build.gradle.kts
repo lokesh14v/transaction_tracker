@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapplication"
+    namespace = "com.example.ExpenseTracker"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.myapplication"
+        applicationId = "com.example.ExpenseTracker"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -28,24 +28,19 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_24
-        targetCompatibility = JavaVersion.VERSION_24
-
+        sourceCompatibility = JavaVersion.VERSION_1_8 // Firebase requires Java 8
+        targetCompatibility = JavaVersion.VERSION_1_8 // Firebase requires Java 8
     }
     kotlin {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_24)
-        }
-    }
-    java {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(24))
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8) // Firebase requires Java 8
         }
     }
     buildFeatures {
         viewBinding = true
     }
     dependencies {
+        
 
         implementation(libs.androidx.core.ktx)
         implementation(libs.androidx.appcompat)
@@ -54,15 +49,17 @@ android {
         implementation(libs.androidx.navigation.fragment.ktx)
         implementation(libs.androidx.navigation.ui.ktx)
 
-        // Room
-        implementation(libs.room.runtime)
-        ksp(libs.room.compiler)
-        // Optional: Room Paging 3 Integration
-        implementation(libs.room.paging)
+        // MPAndroidChart
+        implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
         testImplementation(libs.junit)
         androidTestImplementation(libs.androidx.junit)
         implementation(libs.androidx.espresso.core)
-        implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+        implementation(libs.room.runtime)
+        implementation(libs.room.paging)
+        implementation("androidx.room:room-ktx:2.7.2")
+        annotationProcessor(libs.room.compiler)
+        ksp(libs.room.compiler)
     }
 }

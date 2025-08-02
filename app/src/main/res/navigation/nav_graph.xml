@@ -6,7 +6,7 @@
 
     <fragment
         android:id="@+id/placeholderFragment"
-        android:name="com.example.myapplication.PlaceholderFragment"
+        android:name="com.example.ExpenseTracker.PlaceholderFragment"
         android:label="Placeholder Fragment" />
 
 </navigation>

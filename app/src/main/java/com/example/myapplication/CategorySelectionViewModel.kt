@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.example.ExpenseTracker
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -16,14 +16,11 @@ class CategorySelectionViewModel(private val userCategoryMappingDao: UserCategor
         loadCategories()
     }
 
-    private fun loadCategories() {
+    fun loadCategories() {
         viewModelScope.launch {
-            val predefinedCategories = TransactionCategory.values().filter { it != TransactionCategory.UNKNOWN }.map { it.name }
+            val predefinedCategories = TransactionCategory.entries.filter { it != TransactionCategory.UNKNOWN }.map { it.name }
             val userDefinedCategories = userCategoryMappingDao.getAllMappings().map { it.pattern }
-            val allCategories = mutableListOf<String>()
-            allCategories.addAll(predefinedCategories)
-            allCategories.addAll(userDefinedCategories)
-            allCategories.add("Add New Category...")
+            val allCategories = (predefinedCategories + userDefinedCategories).distinct().sorted()
             _categories.postValue(allCategories)
         }
     }

@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.example.ExpenseTracker
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -36,6 +36,11 @@ enum class TransactionCategory {
     HEALTH,
     TRANSPORT,
     UPI_TRANSFER,
+
+    RD,
+    MUTUAL_FUND,
     SPEND_TO_PERSON,
+
+    MAID,
     UNKNOWN
 }

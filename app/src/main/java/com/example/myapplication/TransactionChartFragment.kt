@@ -8,11 +8,11 @@ import android.widget.ArrayAdapter
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
-import com.example.myapplication.AppDatabase
-import com.example.myapplication.TransactionCategory
-import com.example.myapplication.TransactionViewModel
-import com.example.myapplication.TransactionViewModelFactory
-import com.example.myapplication.databinding.FragmentTransactionChartBinding
+import com.example.ExpenseTracker.AppDatabase
+import com.example.ExpenseTracker.TransactionCategory
+import com.example.ExpenseTracker.TransactionViewModel
+import com.example.ExpenseTracker.TransactionViewModelFactory
+import com.example.ExpenseTracker.databinding.FragmentTransactionChartBinding
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
@@ -38,13 +38,11 @@ class TransactionChartFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val transactionDao = AppDatabase.getDatabase(requireContext()).transactionDao()
-        val viewModelFactory = TransactionViewModelFactory(transactionDao)
-        viewModel = ViewModelProvider(this, viewModelFactory).get(TransactionViewModel::class.java)
+        viewModel = ViewModelProvider(requireActivity()).get(TransactionViewModel::class.java)
 
         // Observe transactions
-        viewModel.transactions.observe(viewLifecycleOwner, Observer { transactions ->
-            val selectedBank = binding.bankSpinner.selectedItem?.toString()
+        viewModel.transactions.observe(viewLifecycleOwner, Observer { transactions: List<com.example.ExpenseTracker.Transaction> ->
+            val selectedBank = viewModel.selectedBank.value
             val filteredTransactions = if (selectedBank == null || selectedBank == "All Banks") {
                 transactions
             } else {
@@ -57,14 +55,22 @@ class TransactionChartFragment : Fragment() {
             setupPieChart(categoryAmounts)
         })
 
-        // Load transactions for the last 30 days
-        val calendar = Calendar.getInstance()
-        val endDate = calendar.timeInMillis
-        calendar.add(Calendar.DAY_OF_YEAR, -30)
-        val startDate = calendar.timeInMillis
-        viewModel.loadTransactionsByDateRange(startDate, endDate)
+        viewModel.dateRange.observe(viewLifecycleOwner) { dateRange ->
+            // No direct action needed here, as loadTransactions() is called from ViewModel
+        }
+
+        viewModel.selectedBank.observe(viewLifecycleOwner) { bank ->
+            val adapter = binding.bankSpinner.adapter as? ArrayAdapter<String>
+            val position = adapter?.getPosition(bank ?: "All Banks") ?: 0
+            binding.bankSpinner.setSelection(position)
+            // No direct action needed here, as loadTransactions() is called from ViewModel
+        }
+
+        // Initial load
+        viewModel.loadTransactions()
 
         // Populate bank spinner
+        val transactionDao = AppDatabase.getDatabase(requireContext()).transactionDao()
         transactionDao.getDistinctBanks().observe(viewLifecycleOwner, Observer { banksList ->
             val banks = mutableListOf("All Banks")
             banks.addAll(banksList)
@@ -77,11 +83,7 @@ class TransactionChartFragment : Fragment() {
         binding.bankSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedBank = parent?.getItemAtPosition(position).toString()
-                val calendar = Calendar.getInstance()
-                val endDate = calendar.timeInMillis
-                calendar.add(Calendar.DAY_OF_YEAR, -30)
-                val startDate = calendar.timeInMillis
-                viewModel.loadTransactionsByDateRange(startDate, endDate, selectedBank)
+                viewModel.setSelectedBank(selectedBank)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {

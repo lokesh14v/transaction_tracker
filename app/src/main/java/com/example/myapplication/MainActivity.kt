@@ -1,5 +1,7 @@
-package com.example.myapplication
+package com.example.ExpenseTracker
 
+import com.example.ExpenseTracker.TransactionViewModel
+import com.example.ExpenseTracker.TransactionViewModelFactory
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -8,14 +10,18 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 
-import com.example.myapplication.databinding.ActivityMainBinding
+import androidx.lifecycle.ViewModelProvider
+import com.example.ExpenseTracker.databinding.ActivityMainBinding
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.google.android.material.datepicker.MaterialDatePicker
+import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var viewModel: TransactionViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,6 +30,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
+
+        val transactionDao = AppDatabase.getDatabase(this).transactionDao()
+        val viewModelFactory = TransactionViewModelFactory(transactionDao)
+        viewModel = ViewModelProvider(this, viewModelFactory).get(TransactionViewModel::class.java)
 
         val viewPagerAdapter = ViewPagerAdapter(this)
         binding.viewPager.adapter = viewPagerAdapter
@@ -37,7 +47,63 @@ class MainActivity : AppCompatActivity() {
             }
         }.attach()
 
+        binding.chipLast30Days.isChecked = true
+
+        binding.chipLast30Days.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                val calendar = Calendar.getInstance()
+                val endDate = calendar.timeInMillis
+                calendar.add(Calendar.DAY_OF_YEAR, -30)
+                val startDate = calendar.timeInMillis
+                viewModel.setDateRange(startDate, endDate)
+            } else {
+                viewModel.clearDateRange()
+            }
+        }
+
+        binding.dateRangeIcon.setOnClickListener {
+            binding.chipLast30Days.isChecked = false // Uncheck the chip when date picker is opened
+            viewModel.clearDateRange()
+            viewModel.clearSelectedBank()
+            showDateRangePicker()
+        }
+
+        binding.btnReload.setOnClickListener {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val transactionDao = AppDatabase.getDatabase(this@MainActivity).transactionDao()
+                transactionDao.clearAllTransactions()
+                SmsManager.syncSms(this@MainActivity)
+                viewModel.loadTransactions()
+            }
+        }
+
         checkAndRequestPermissions()
+    }
+
+    private fun showDateRangePicker() {
+        val dateRangePicker =
+            MaterialDatePicker.Builder.dateRangePicker()
+                .setTitleText("Select dates")
+                .build()
+
+        dateRangePicker.addOnPositiveButtonClickListener { selection ->
+            var startDate = selection.first
+            var endDate = selection.second
+
+            // If only one day is selected, adjust endDate to be the end of that day
+            if (startDate == endDate) {
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = endDate
+                calendar.set(Calendar.HOUR_OF_DAY, 23)
+                calendar.set(Calendar.MINUTE, 59)
+                calendar.set(Calendar.SECOND, 59)
+                calendar.set(Calendar.MILLISECOND, 999)
+                endDate = calendar.timeInMillis
+            }
+            viewModel.setDateRange(startDate, endDate)
+        }
+
+        dateRangePicker.show(supportFragmentManager, "dateRangePicker")
     }
 
     private fun checkAndRequestPermissions() {

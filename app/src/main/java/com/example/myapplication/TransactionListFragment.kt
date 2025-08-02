@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.example.ExpenseTracker
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,13 +9,19 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.myapplication.databinding.FragmentTransactionListBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.example.ExpenseTracker.databinding.FragmentTransactionListBinding
 import com.google.android.material.datepicker.MaterialDatePicker
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+import java.util.LinkedList
+import java.util.Queue
 
 class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.CategorySelectedListener, AddNewCategoryDialogFragment.AddNewCategoryListener {
 
@@ -23,6 +29,10 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
     private val binding get() = _binding!!
     private lateinit var transactionAdapter: TransactionAdapter
     private lateinit var viewModel: TransactionViewModel
+    private lateinit var categorySelectionViewModel: CategorySelectionViewModel
+    private var currentTransactionForCategorySelection: Transaction? = null
+    private val categorizationQueue: Queue<Transaction> = LinkedList()
+    private var isDialogShowing: Boolean = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -37,22 +47,38 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        transactionAdapter = TransactionAdapter { transaction ->
-            // Handle category click
-            val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, this)
-            dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
-        }
+        transactionAdapter = TransactionAdapter(
+            onCategoryClick = { transaction ->
+                // Handle category click
+                currentTransactionForCategorySelection = transaction
+                val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, transaction.amount, transaction.merchant, transaction.originalMessage, transaction.userDefinedCategoryName, this)
+                dialog.show(childFragmentManager, "CategorySelectionDialogFragment")
+            },
+            onDeleteClick = { transaction ->
+                viewModel.delete(transaction)
+            }
+        )
         binding.transactionRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = transactionAdapter
         }
 
-        val transactionDao = AppDatabase.getDatabase(requireContext()).transactionDao()
-        val viewModelFactory = TransactionViewModelFactory(transactionDao)
-        viewModel = ViewModelProvider(this, viewModelFactory).get(TransactionViewModel::class.java)
+        viewModel = ViewModelProvider(requireActivity()).get(TransactionViewModel::class.java)
+
+        val userCategoryMappingDao = (requireActivity().application as MyApplication).appDatabase.userCategoryMappingDao()
+        val categorySelectionViewModelFactory = CategorySelectionViewModelFactory(userCategoryMappingDao)
+        categorySelectionViewModel = ViewModelProvider(this, categorySelectionViewModelFactory).get(CategorySelectionViewModel::class.java)
 
         viewModel.transactions.observe(viewLifecycleOwner) { transactions ->
             transactionAdapter.submitList(transactions)
+
+            // Add NEFT transactions that need categorization to the queue
+            transactions.forEach { transaction ->
+                if (transaction.merchant == "NEFT transaction via HDFC Bank Online Banking" && transaction.category == TransactionCategory.UNKNOWN && !categorizationQueue.contains(transaction)) {
+                    categorizationQueue.offer(transaction)
+                }
+            }
+            showNextCategoryDialog()
         }
 
         viewModel.totalSpend.observe(viewLifecycleOwner) { totalSpend ->
@@ -63,55 +89,30 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
             binding.totalCreditTextView.text = String.format(Locale.getDefault(), "₹ %.2f", totalCredit)
         }
 
-        // Default to last 30 days
-        val calendar = Calendar.getInstance()
-        val endDate = calendar.timeInMillis
-        calendar.add(Calendar.DAY_OF_YEAR, -30)
-        val startDate = calendar.timeInMillis
-        viewModel.loadTransactionsByDateRange(startDate, endDate)
-        updateDateRangeText(startDate, endDate)
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        inflater.inflate(R.menu.menu_transaction_list, menu)
-        super.onCreateOptionsMenu(menu, inflater)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_date_range -> {
-                showDateRangePicker()
-                true
+        viewModel.dateRange.observe(viewLifecycleOwner) { dateRange ->
+            if (dateRange != null) {
+                updateDateRangeText(dateRange.first, dateRange.second)
+            } else {
+                binding.dateRangeTextView.text = "All Transactions"
             }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    private fun showDateRangePicker() {
-        val dateRangePicker =
-            MaterialDatePicker.Builder.dateRangePicker()
-                .setTitleText("Select dates")
-                .build()
-
-        dateRangePicker.addOnPositiveButtonClickListener { selection ->
-            var startDate = selection.first
-            var endDate = selection.second
-
-            // If only one day is selected, adjust endDate to be the end of that day
-            if (startDate == endDate) {
-                val calendar = Calendar.getInstance()
-                calendar.timeInMillis = endDate
-                calendar.set(Calendar.HOUR_OF_DAY, 23)
-                calendar.set(Calendar.MINUTE, 59)
-                calendar.set(Calendar.SECOND, 59)
-                calendar.set(Calendar.MILLISECOND, 999)
-                endDate = calendar.timeInMillis
-            }
-            viewModel.loadTransactionsByDateRange(startDate, endDate)
-            updateDateRangeText(startDate, endDate)
         }
 
-        dateRangePicker.show(parentFragmentManager, "dateRangePicker")
+        viewModel.selectedBank.observe(viewLifecycleOwner) { bank ->
+            // No direct action needed here, as loadTransactions() is called from ViewModel
+        }
+
+        // Initial load
+        viewModel.loadTransactions()
+    }
+
+    private fun showNextCategoryDialog() {
+        if (!isDialogShowing && categorizationQueue.isNotEmpty()) {
+            val transaction = categorizationQueue.poll()
+            currentTransactionForCategorySelection = transaction
+            val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, transaction.amount, transaction.merchant, transaction.originalMessage, transaction.userDefinedCategoryName, this)
+            dialog.show(childFragmentManager, "CategorySelectionDialogFragment")
+            isDialogShowing = true
+        }
     }
 
     private fun updateDateRangeText(startDate: Long, endDate: Long) {
@@ -121,6 +122,9 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
 
     override fun onCategorySelected(transactionId: Int, newCategory: TransactionCategory, userDefinedCategoryName: String?) {
         viewModel.updateTransactionCategory(transactionId, newCategory, userDefinedCategoryName)
+        isDialogShowing = false
+        showNextCategoryDialog()
+        viewModel.loadTransactions() // Refresh transactions to reflect the category change
     }
 
     override fun onAddNewCategoryRequested(transactionId: Int) {
@@ -129,7 +133,17 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
     }
 
     override fun onNewCategoryAdded(transactionId: Int, newCategoryName: String) {
-        viewModel.updateTransactionCategory(transactionId, TransactionCategory.UNKNOWN, newCategoryName)
+        categorySelectionViewModel.addNewUserCategory(newCategoryName.uppercase())
+        // Re-show the category selection dialog to refresh the list after a short delay
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
+            kotlinx.coroutines.delay(200) // Small delay to allow database update to propagate
+            currentTransactionForCategorySelection?.let {
+                val dialog = CategorySelectionDialogFragment.newInstance(it.id, it.category, it.amount, it.merchant, it.originalMessage, it.userDefinedCategoryName, this@TransactionListFragment)
+                dialog.show(childFragmentManager, "CategorySelectionDialogFragment")
+            }
+            isDialogShowing = false
+            showNextCategoryDialog()
+        }
     }
 
     override fun onDestroyView() {
