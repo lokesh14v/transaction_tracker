@@ -57,9 +57,7 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
             adapter = transactionAdapter
         }
 
-        val transactionDao = AppDatabase.getDatabase(requireContext()).transactionDao()
-        val viewModelFactory = TransactionViewModelFactory(transactionDao)
-        viewModel = ViewModelProvider(this, viewModelFactory).get(TransactionViewModel::class.java)
+        viewModel = ViewModelProvider(requireActivity()).get(TransactionViewModel::class.java)
 
         viewModel.transactions.observe(viewLifecycleOwner) { transactions ->
             transactionAdapter.submitList(transactions)
@@ -73,57 +71,15 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
             binding.totalCreditTextView.text = String.format(Locale.getDefault(), "₹ %.2f", totalCredit)
         }
 
-        // Default to current month
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        val startDate = calendar.timeInMillis
-        calendar.add(Calendar.MONTH, 1)
-        calendar.add(Calendar.DAY_OF_MONTH, -1)
-        val endDate = calendar.timeInMillis
-        viewModel.loadTransactionsByDateRange(startDate, endDate)
-        updateDateRangeText(startDate, endDate)
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        inflater.inflate(R.menu.menu_transaction_list, menu)
-        super.onCreateOptionsMenu(menu, inflater)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_date_range -> {
-                showDateRangePicker()
-                true
+        viewModel.dateRange.observe(viewLifecycleOwner) { dateRange ->
+            if (dateRange != null) {
+                viewModel.loadTransactionsByDateRange(dateRange.first, dateRange.second)
+                updateDateRangeText(dateRange.first, dateRange.second)
+            } else {
+                viewModel.loadAllTransactions()
+                binding.dateRangeTextView.text = "All Transactions"
             }
-            else -> super.onOptionsItemSelected(item)
         }
-    }
-
-    private fun showDateRangePicker() {
-        val dateRangePicker =
-            MaterialDatePicker.Builder.dateRangePicker()
-                .setTitleText("Select dates")
-                .build()
-
-        dateRangePicker.addOnPositiveButtonClickListener { selection ->
-            var startDate = selection.first
-            var endDate = selection.second
-
-            // If only one day is selected, adjust endDate to be the end of that day
-            if (startDate == endDate) {
-                val calendar = Calendar.getInstance()
-                calendar.timeInMillis = endDate
-                calendar.set(Calendar.HOUR_OF_DAY, 23)
-                calendar.set(Calendar.MINUTE, 59)
-                calendar.set(Calendar.SECOND, 59)
-                calendar.set(Calendar.MILLISECOND, 999)
-                endDate = calendar.timeInMillis
-            }
-            viewModel.loadTransactionsByDateRange(startDate, endDate)
-            updateDateRangeText(startDate, endDate)
-        }
-
-        dateRangePicker.show(parentFragmentManager, "dateRangePicker")
     }
 
     private fun updateDateRangeText(startDate: Long, endDate: Long) {

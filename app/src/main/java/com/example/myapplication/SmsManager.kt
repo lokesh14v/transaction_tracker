@@ -1,4 +1,5 @@
 package com.example.ExpenseTracker
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.core.net.toUri
 import android.provider.Telephony
@@ -64,6 +65,7 @@ object SmsManager {
         }
         return null }
 
+    @SuppressLint("SuspiciousIndentation")
     suspend fun parseSms(sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
         val merchantPattern = Pattern.compile("""(?:at|to)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")

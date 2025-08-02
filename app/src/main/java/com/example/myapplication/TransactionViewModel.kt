@@ -18,16 +18,41 @@ class TransactionViewModel(private val transactionDao: TransactionDao) : ViewMod
     private val _totalCredit = MutableLiveData<Double>()
     val totalCredit: LiveData<Double> = _totalCredit
 
+    private val _dateRange = MutableLiveData<Pair<Long, Long>?>()
+    val dateRange: LiveData<Pair<Long, Long>?> = _dateRange
+
+    fun setDateRange(startDate: Long, endDate: Long) {
+        _dateRange.value = Pair(startDate, endDate)
+    }
+
+    fun clearDateRange() {
+        _dateRange.value = null
+    }
+
+    fun loadAllTransactions(bank: String? = null) {
+        viewModelScope.launch {
+            val liveData = if (bank == null || bank == "All Banks") {
+                transactionDao.getAllTransactions()
+            } else {
+                transactionDao.getTransactionsByBank(bank)
+            }
+            liveData.observeForever { transactionsList ->
+                _transactions.postValue(transactionsList)
+                calculateTotals(transactionsList)
+            }
+        }
+    }
+
     fun loadTransactionsByDateRange(startDate: Long, endDate: Long, bank: String? = null) {
         viewModelScope.launch {
             val liveData = if (bank == null || bank == "All Banks") {
                 transactionDao.getTransactionsBetweenDates(startDate, endDate)
             } else {
-                transactionDao.getTransactionsBetweenDates(startDate, endDate)
+                transactionDao.getTransactionsByBankAndDateRange(bank, startDate, endDate)
             }
             liveData.observeForever { transactionsList ->
                 _transactions.postValue(transactionsList)
-                calculateTotals(transactionsList.filter { transaction -> bank == null || bank == "All Banks" || transaction.bank == bank })
+                calculateTotals(transactionsList)
             }
         }
     }

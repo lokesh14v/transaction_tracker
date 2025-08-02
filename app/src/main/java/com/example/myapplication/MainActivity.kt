@@ -8,14 +8,17 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 
+import androidx.lifecycle.ViewModelProvider
 import com.example.ExpenseTracker.databinding.ActivityMainBinding
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var viewModel: TransactionViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,6 +27,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
+
+        val transactionDao = AppDatabase.getDatabase(this).transactionDao()
+        val viewModelFactory = TransactionViewModelFactory(transactionDao)
+        viewModel = ViewModelProvider(this, viewModelFactory).get(TransactionViewModel::class.java)
 
         val viewPagerAdapter = ViewPagerAdapter(this)
         binding.viewPager.adapter = viewPagerAdapter
@@ -36,6 +43,18 @@ class MainActivity : AppCompatActivity() {
                 else -> ""
             }
         }.attach()
+
+        binding.chipLast30Days.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                val calendar = Calendar.getInstance()
+                val endDate = calendar.timeInMillis
+                calendar.add(Calendar.DAY_OF_YEAR, -30)
+                val startDate = calendar.timeInMillis
+                viewModel.setDateRange(startDate, endDate)
+            } else {
+                viewModel.clearDateRange()
+            }
+        }
 
         checkAndRequestPermissions()
     }

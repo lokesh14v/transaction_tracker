@@ -11,6 +11,15 @@ import com.example.ExpenseTracker.TransactionCategory
 
 @Dao
 interface TransactionDao {
+    @Query("SELECT * FROM transactions ORDER BY transactionDateTime DESC")
+    fun getAllTransactions(): LiveData<List<Transaction>>
+
+    @Query("SELECT * FROM transactions WHERE bank = :bank ORDER BY transactionDateTime DESC")
+    fun getTransactionsByBank(bank: String): LiveData<List<Transaction>>
+
+    @Query("SELECT * FROM transactions WHERE bank = :bank AND transactionDateTime BETWEEN :startDate AND :endDate ORDER BY transactionDateTime DESC")
+    fun getTransactionsByBankAndDateRange(bank: String, startDate: Long, endDate: Long): LiveData<List<Transaction>>
+
     @Query("SELECT * FROM transactions WHERE transactionDateTime BETWEEN :startDate AND :endDate ORDER BY transactionDateTime DESC")
     fun getTransactionsBetweenDates(startDate: Long, endDate: Long): LiveData<List<Transaction>>
 

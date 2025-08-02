@@ -38,9 +38,7 @@ class TransactionChartFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val transactionDao = AppDatabase.getDatabase(requireContext()).transactionDao()
-        val viewModelFactory = TransactionViewModelFactory(transactionDao)
-        viewModel = ViewModelProvider(this, viewModelFactory).get(TransactionViewModel::class.java)
+        viewModel = ViewModelProvider(requireActivity()).get(TransactionViewModel::class.java)
 
         // Observe transactions
         viewModel.transactions.observe(viewLifecycleOwner, Observer { transactions ->
@@ -57,14 +55,17 @@ class TransactionChartFragment : Fragment() {
             setupPieChart(categoryAmounts)
         })
 
-        // Load transactions for the last 30 days
-        val calendar = Calendar.getInstance()
-        val endDate = calendar.timeInMillis
-        calendar.add(Calendar.DAY_OF_YEAR, -30)
-        val startDate = calendar.timeInMillis
-        viewModel.loadTransactionsByDateRange(startDate, endDate)
+        viewModel.dateRange.observe(viewLifecycleOwner) { dateRange ->
+            val selectedBank = binding.bankSpinner.selectedItem?.toString()
+            if (dateRange != null) {
+                viewModel.loadTransactionsByDateRange(dateRange.first, dateRange.second, selectedBank)
+            } else {
+                viewModel.loadAllTransactions(selectedBank)
+            }
+        }
 
         // Populate bank spinner
+        val transactionDao = AppDatabase.getDatabase(requireContext()).transactionDao()
         transactionDao.getDistinctBanks().observe(viewLifecycleOwner, Observer { banksList ->
             val banks = mutableListOf("All Banks")
             banks.addAll(banksList)
@@ -77,11 +78,12 @@ class TransactionChartFragment : Fragment() {
         binding.bankSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedBank = parent?.getItemAtPosition(position).toString()
-                val calendar = Calendar.getInstance()
-                val endDate = calendar.timeInMillis
-                calendar.add(Calendar.DAY_OF_YEAR, -30)
-                val startDate = calendar.timeInMillis
-                viewModel.loadTransactionsByDateRange(startDate, endDate, selectedBank)
+                val dateRange = viewModel.dateRange.value
+                if (dateRange != null) {
+                    viewModel.loadTransactionsByDateRange(dateRange.first, dateRange.second, selectedBank)
+                } else {
+                    viewModel.loadAllTransactions(selectedBank)
+                }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
