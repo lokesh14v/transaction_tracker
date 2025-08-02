@@ -72,20 +72,17 @@ object SmsManager {
 
     suspend fun parseSms(sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
-        val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
+        val merchantPattern = Pattern.compile("""(?:at|to|from)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
-        val bankPattern = Pattern.compile("""(?:from|in|at|with)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card)""")
+        val bankPattern = Pattern.compile("""(?:from|in|at|with|on)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card|- Axis Bank)""")
         val upiPattern = Pattern.compile("""UPI/(?:P2M|P2A)/(?:[^/]+/)*([^/]+)""", Pattern.CASE_INSENSITIVE)
-        val accountNumberPattern = Pattern.compile("""A/c no\. ([X*\d]+)""")
-        val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2},\s*\d{2}:\d{2}:\d{2})""")
+        val accountNumberPattern = Pattern.compile("""A/c(?: no\.)? ([X*\d]+)""")
+        val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2}(?:,\s*\d{2}:\d{2}:\d{2})?|\d{2}-\w{3}-\d{2})""")
+        val infoMerchantPattern = Pattern.compile("""Info - ([^/]+)""")
+        val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?=\.\s|$)|""")
 
         val amountMatcher = amountPattern.matcher(sms)
-        val merchantMatcher = merchantPattern.matcher(sms)
         val typeMatcher = typePattern.matcher(sms)
-        val bankMatcher = bankPattern.matcher(sms)
-        val upiMatcher = upiPattern.matcher(sms)
-        val accountNumberMatcher = accountNumberPattern.matcher(sms)
-        val dateTimeMatcher = dateTimePattern.matcher(sms)
 
         if (amountMatcher.find()) {
             val amount = amountMatcher.group(1).replace(",", "").toDouble()
@@ -96,22 +93,41 @@ object SmsManager {
                     else -> TransactionType.UNKNOWN
                 }
             } else {
-                if (sms.lowercase().contains("debited")) TransactionType.DEBIT else TransactionType.UNKNOWN
+                if (sms.lowercase().contains("debited")) TransactionType.DEBIT
+                else if (sms.lowercase().contains("credited")) TransactionType.CREDIT
+                else TransactionType.UNKNOWN
             }
 
-            val merchantFromGeneralPattern = if (merchantMatcher.find()) merchantMatcher.group(1) else null
-            val merchantFromUpiPattern = if (upiMatcher.find()) upiMatcher.group(1) else null
+            val merchantMatcher = merchantPattern.matcher(sms)
+            val upiMatcher = upiPattern.matcher(sms)
+            val infoMerchantMatcher = infoMerchantPattern.matcher(sms)
+            val forMerchantMatcher = forMerchantPattern.matcher(sms)
 
-            val finalMerchant = merchantFromUpiPattern ?: merchantFromGeneralPattern ?: "Unknown"
+            val finalMerchant = when {
+                upiMatcher.find() -> upiMatcher.group(1) ?: "Unknown"
+                infoMerchantMatcher.find() -> infoMerchantMatcher.group(1) ?: "Unknown"
+                forMerchantMatcher.find() -> forMerchantMatcher.group(1) ?: "Unknown"
+                merchantMatcher.find() -> merchantMatcher.group(1) ?: "Unknown"
+                else -> "Unknown"
+            }
 
+            val bankMatcher = bankPattern.matcher(sms)
             val bank = if (bankMatcher.find()) bankMatcher.group(1).trim() else {
                 extractBankNameWithRegexValidation(senderAddress) ?: senderAddress
             }
+
+            val accountNumberMatcher = accountNumberPattern.matcher(sms)
             val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
+
+            val dateTimeMatcher = dateTimePattern.matcher(sms)
             val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
             val transactionDateTime = dateTimeString?.let {
                 try {
-                    val format = SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault())
+                    val format = if (it.contains(",")) {
+                        SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault())
+                    } else {
+                        SimpleDateFormat("dd-MMM-yy", Locale.getDefault())
+                    }
                     format.parse(it)?.time
                 } catch (e: ParseException) {
                     null
@@ -136,8 +152,8 @@ object SmsManager {
         return null
     }
 
-    private suspend fun classifyTransaction(merchant: String, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
-        val lowerMerchant = merchant.lowercase()
+    private suspend fun classifyTransaction(merchant: String?, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
+        val lowerMerchant = merchant?.lowercase() ?: ""
         val lowerMessage = originalMessage.lowercase()
 
         // First, check user-defined mappings

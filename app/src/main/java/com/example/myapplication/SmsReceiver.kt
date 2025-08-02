@@ -5,15 +5,14 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
+import android.widget.Toast
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.regex.Pattern
-import android.widget.Toast
-
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class SmsReceiver : BroadcastReceiver() {
 
@@ -30,93 +29,102 @@ class SmsReceiver : BroadcastReceiver() {
                     Log.d("SmsReceiver", "SMS received from: $sender, Body: $messageBody")
 
                     if (userCategoryMappingDao != null) {
-                        val transaction = parseSms(messageBody, smsMessage.timestampMillis, sender, context, userCategoryMappingDao)
+                        val transaction = parseSms(messageBody, smsMessage.timestampMillis, sender, userCategoryMappingDao)
                         if (transaction != null) {
                             Log.d("SmsReceiver", "Parsed Transaction: $transaction")
                             applicationContext
                                 ?.transactionViewModel
                                 ?.addTransaction(transaction)
+
+                            // Show Toast on the main thread
+                            CoroutineScope(Dispatchers.Main).launch {
+                                Toast.makeText(context, "Merchant: ${transaction.merchant}", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 }
             }
         }
     }
-    fun extractBankNameWithRegexValidation(input: String): String? {     // Regex to validate the basic structure: XX-YYYYYY-Z (approx)
-        // This regex captures the middle part.
-        val formatRegex = Regex("""^[A-Z]{2,}-([A-Z0-9]+?)-[A-Z]$""") // Adjust based on exact rules for prefix/suffix
-        val matchResult = formatRegex.find(input)
-        if (matchResult != null) {
-            val potentialBankCode = matchResult.groups[1]?.value // Get the captured group
-            if (potentialBankCode != null && potentialBankCode.length > 2) {
-                return potentialBankCode.dropLast(2)
-            } else if (potentialBankCode != null && potentialBankCode.isNotEmpty()) {
-                return potentialBankCode // Or other logic for short codes
-            }
-        }
-        return null }
-    private suspend fun parseSms(messageBody: String, timestamp: Long, senderAddress: String, context: Context?, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
-        val amountPattern = Regex("""(?:Rs\.?|INR)\s?([\d,]+(?:\.\d{1,2})?)""")
-        val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
-        val accountNumberPattern = Pattern.compile("""A/c no\. ([X*\d]+)""", Pattern.CASE_INSENSITIVE)
-        val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2},\s*\d{2}:\d{2}:\d{2})""")
+
+    private suspend fun parseSms(sms: String, timestamp: Long, senderAddress: String, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
+        val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
+        val merchantPattern = Pattern.compile("""(?:at|to|from)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")
+        val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
+        val bankPattern = Pattern.compile("""(?:from|in|at|with|on)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card|- Axis Bank)""")
         val upiPattern = Pattern.compile("""UPI/(?:P2M|P2A)/(?:[^/]+/)*([^/]+)""", Pattern.CASE_INSENSITIVE)
+        val accountNumberPattern = Pattern.compile("""A/c(?: no\.)? ([X*\d]+)""")
+        val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2}(?:,\s*\d{2}:\d{2}:\d{2})?|\d{2}-\w{3}-\d{2})""")
+        val infoMerchantPattern = Pattern.compile("""Info - ([^/]+)""")
+        val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?=\.\s|$)|""")
 
-        val amountMatcher = amountPattern.find(messageBody)
-        val merchantMatcher = merchantPattern.matcher(messageBody)
-        val accountNumberMatcher = accountNumberPattern.matcher(messageBody)
-        val dateTimeMatcher = dateTimePattern.matcher(messageBody)
-        val upiMatcher = upiPattern.matcher(messageBody)
+        val amountMatcher = amountPattern.matcher(sms)
+        val typeMatcher = typePattern.matcher(sms)
 
-        val amount: Double? = amountMatcher?.groups?.get(1)?.value
-            ?.replace(",", "")
-            ?.toDoubleOrNull()
-
-        val type = when {
-            "debited" in messageBody.lowercase() || "spent" in messageBody.lowercase() || "paid" in messageBody.lowercase() -> TransactionType.DEBIT
-            "credited" in messageBody.lowercase() || "received" in messageBody.lowercase() -> TransactionType.CREDIT
-            else -> TransactionType.UNKNOWN
-        }
-
-        val merchantFoundOnce = merchantMatcher.find()
-        val upiFoundOnce = upiMatcher.find()
-
-        val extractedMerchant = if (merchantFoundOnce) merchantMatcher.group(1) else "Unknown"
-        val extractedUpiMerchant = if (upiFoundOnce) upiMatcher.group(1) else null
-        val finalMerchant = extractedUpiMerchant ?: extractedMerchant
-
-        // ✅ Show Toast for final merchant
-        context?.let {
-            Toast.makeText(it, "Merchant: $finalMerchant", Toast.LENGTH_SHORT).show()
-        }
-
-        val category = classifyTransaction(finalMerchant, messageBody, userCategoryMappingDao)
-        val extractedBankFromRegex = extractBankNameWithRegexValidation(senderAddress)
-        val bank = extractedBankFromRegex ?: senderAddress
-        val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
-        val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
-        val transactionDateTime = dateTimeString?.let {
-            try {
-                val format = SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault())
-                format.parse(it)?.time
-            } catch (e: ParseException) {
-                null
+        if (amountMatcher.find()) {
+            val amount = amountMatcher.group(1).replace(",", "").toDouble()
+            val type = if (typeMatcher.find()) {
+                when (typeMatcher.group(1).lowercase()) {
+                    "credited", "received", "added", "deposit", "refund", "credit" -> TransactionType.CREDIT
+                    "debited", "spent", "paid", "deducted", "purchase", "payment", "withdrawal" -> TransactionType.DEBIT
+                    else -> TransactionType.UNKNOWN
+                }
+            } else {
+                if (sms.lowercase().contains("debited")) TransactionType.DEBIT
+                else if (sms.lowercase().contains("credited")) TransactionType.CREDIT
+                else TransactionType.UNKNOWN
             }
-        }
 
-        return if (amount != null) {
-            Transaction(
+            val merchantMatcher = merchantPattern.matcher(sms)
+            val upiMatcher = upiPattern.matcher(sms)
+            val infoMerchantMatcher = infoMerchantPattern.matcher(sms)
+            val forMerchantMatcher = forMerchantPattern.matcher(sms)
+
+            val finalMerchant = when {
+                upiMatcher.find() -> upiMatcher.group(1)
+                infoMerchantMatcher.find() -> infoMerchantMatcher.group(1)
+                forMerchantMatcher.find() -> forMerchantMatcher.group(1)
+                merchantMatcher.find() -> merchantMatcher.group(1)
+                else -> "Unknown"
+            }
+
+            val bankMatcher = bankPattern.matcher(sms)
+            val bank = if (bankMatcher.find()) bankMatcher.group(1).trim() else senderAddress
+
+            val accountNumberMatcher = accountNumberPattern.matcher(sms)
+            val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
+
+            val dateTimeMatcher = dateTimePattern.matcher(sms)
+            val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
+            val transactionDateTime = dateTimeString?.let {
+                try {
+                    val format = if (it.contains(",")) {
+                        SimpleDateFormat("dd-MM-yy, HH:mm:ss", Locale.getDefault())
+                    } else {
+                        SimpleDateFormat("dd-MMM-yy", Locale.getDefault())
+                    }
+                    format.parse(it)?.time
+                } catch (e: ParseException) {
+                    null
+                }
+            }
+
+            val finalCategory = classifyTransaction(finalMerchant, sms, userCategoryMappingDao)
+
+            val transaction = Transaction(
                 amount = amount,
                 merchant = finalMerchant,
                 smsDate = timestamp,
                 type = type,
-                originalMessage = messageBody,
+                originalMessage = sms,
                 bank = bank,
                 accountNumber = accountNumber,
                 transactionDateTime = transactionDateTime,
-                category = category
+                category = finalCategory
             )
-        } else null
+            return transaction
+        }
+        return null
     }
 
     private suspend fun classifyTransaction(merchant: String, originalMessage: String, userCategoryMappingDao: UserCategoryMappingDao): TransactionCategory {
@@ -131,7 +139,6 @@ class SmsReceiver : BroadcastReceiver() {
 
         val detectedCategory = when {
             lowerMerchant.contains("redbus") -> TransactionCategory.TRAVEL
-            lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
             lowerMessage.contains("upi/p2a") -> TransactionCategory.SPEND_TO_PERSON
 
             listOf("zomato", "swiggy", "restaurant", "cafe", "pizza", "food", "dine").any { lowerMerchant.contains(it) } ->
@@ -154,6 +161,8 @@ class SmsReceiver : BroadcastReceiver() {
 
             listOf("pharmacy", "hospital", "clinic", "doctor", "medical").any { lowerMerchant.contains(it) } ->
                 TransactionCategory.HEALTH
+
+            lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
 
             else -> TransactionCategory.UNKNOWN
         }
