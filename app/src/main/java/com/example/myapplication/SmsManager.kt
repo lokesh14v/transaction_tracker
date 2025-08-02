@@ -51,7 +51,7 @@ object SmsManager {
                     smsList.add(Triple(body, sender, timestamp))
                 }
             } else {
-                Log.e(TAG, "SMS body, address, or date column not found")
+                // Log.e(TAG, "SMS body, address, or date column not found")
             }
         }
         return smsList
@@ -72,14 +72,14 @@ object SmsManager {
 
     suspend fun parseSms(sms: String, senderAddress: String, timestamp: Long, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Pattern.compile("""(?:Rs|INR)\.?\s*([\d,]+\.?\d*)""")
-        val merchantPattern = Pattern.compile("""(?:at|to|from)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")
+        val merchantPattern = Pattern.compile("""(?:at|to)\s+([^\s.,]+(?:\s+[^\s.,]+)*)""")
         val typePattern = Pattern.compile("""(credited|received|added|deposit|refund|credit|debited|spent|paid|deducted|purchase|payment|withdrawal)""", Pattern.CASE_INSENSITIVE)
         val bankPattern = Pattern.compile("""(?:from|in|at|with|on)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card|- Axis Bank)""")
         val upiPattern = Pattern.compile("""UPI/(?:P2M|P2A)/(?:[^/]+/)*([^/]+)""", Pattern.CASE_INSENSITIVE)
         val accountNumberPattern = Pattern.compile("""A/c(?: no\.)? ([X*\d]+)""")
         val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2}(?:,\s*\d{2}:\d{2}:\d{2})?|\d{2}-\w{3}-\d{2})""")
-        val infoMerchantPattern = Pattern.compile("""Info - ([^/]+)""")
-        val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?=\.\s|$)|""")
+        val infoMerchantPattern = Pattern.compile("""Info:([^/]+)""")
+        val forMerchantPattern = Pattern.compile("""for\s+(.+?)(?=\.\s|$)""")
 
         val amountMatcher = amountPattern.matcher(sms)
         val typeMatcher = typePattern.matcher(sms)
@@ -95,18 +95,27 @@ object SmsManager {
                     TransactionType.UNKNOWN
                 }
 
-            val merchantMatcher = merchantPattern.matcher(sms)
-            val upiMatcher = upiPattern.matcher(sms)
-            val infoMerchantMatcher = infoMerchantPattern.matcher(sms)
-            val forMerchantMatcher = forMerchantPattern.matcher(sms)
-
-            val finalMerchant = when {
-                upiMatcher.find() -> upiMatcher.group(1) ?: "Unknown"
-                infoMerchantMatcher.find() -> infoMerchantMatcher.group(1) ?: "Unknown"
-                forMerchantMatcher.find() -> forMerchantMatcher.group(1) ?: "Unknown"
-                merchantMatcher.find() -> merchantMatcher.group(1) ?: "Unknown"
-                else -> "Unknown"
+            val afterColonMerchantPattern = Pattern.compile(""":\s*after\s+that\s+[A-Z0-9]+-\s*(A-Z)""", Pattern.CASE_INSENSITIVE)
+            val finalMerchant = upiPattern.matcher(sms).let {
+                if (it.find()) {
+                    val merchantGroup = it.group(1)
+                    merchantGroup?.split("Not you?")?.firstOrNull()?.trim()
+                } else null
             }
+                ?: infoMerchantPattern.matcher(sms).let {
+                    if (it.find()) {
+                        val merchantGroup = it.group(1)
+                        val parts = merchantGroup?.split("-")
+                        when {
+                            (parts?.size ?: 0) > 1 -> parts?.getOrNull(1)?.trim()
+                            else -> parts?.firstOrNull()?.trim()
+                        }
+                    } else null
+                }
+                ?: forMerchantPattern.matcher(sms).let { if (it.find()) it.group(1)?.trim() else null }
+                ?: afterColonMerchantPattern.matcher(sms).let { if (it.find()) it.group(1) else null }
+                ?: merchantPattern.matcher(sms).let { if (it.find()) it.group(1) else null }
+                ?: "Unknown"
 
             val bankMatcher = bankPattern.matcher(sms)
             val bank = if (bankMatcher.find()) bankMatcher.group(1).trim() else {
@@ -164,7 +173,7 @@ object SmsManager {
             lowerMerchant.contains("redbus") -> TransactionCategory.TRAVEL
             lowerMessage.contains("upi/p2a") -> TransactionCategory.SPEND_TO_PERSON
 
-            listOf("zomato", "swiggy", "restaurant", "cafe", "pizza", "food", "dine").any { lowerMerchant.contains(it) } ->
+            listOf("zomato", "swiggy", "restaurant", "cafe", "pizza", "food", "dine","bake","chicken").any { lowerMerchant.contains(it) } ->
                 TransactionCategory.FOOD
 
             listOf("bar", "pub").any { lowerMerchant.contains(it) } ->
@@ -184,7 +193,15 @@ object SmsManager {
 
             listOf("pharmacy", "hospital", "clinic", "doctor", "medical").any { lowerMerchant.contains(it) } ->
                 TransactionCategory.HEALTH
-            
+
+            listOf("sumithra").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.MAID
+
+            listOf("rd").any { lowerMerchant.contains(it) } ->
+                TransactionCategory.RD
+            listOf("mutual","mutalfund", "sip", "equity", "debt fund", "hybrid fund", "nav").any { lowerMerchant.contains(it) || lowerMessage.contains(it) } ->
+                TransactionCategory.MUTUAL_FUND
+
             lowerMessage.contains("upi/p2m") -> TransactionCategory.UPI_TRANSFER
 
             else -> TransactionCategory.UNKNOWN
@@ -192,7 +209,7 @@ object SmsManager {
 
         if (detectedCategory == TransactionCategory.UNKNOWN) {
             // Placeholder for notification logic
-            Log.d(TAG, "Unknown category detected for: $originalMessage. Prompt user for category.")
+            // Log.d(TAG, "Unknown category detected for: $originalMessage. Prompt user for category.")
             // In a real app, you would trigger a notification here
             // For example: NotificationHelper.showCategoryPromptNotification(context, originalMessage, finalMerchant)
         }

@@ -72,18 +72,11 @@ class SmsReceiver : BroadcastReceiver() {
                     TransactionType.UNKNOWN
                 }
 
-            val merchantMatcher = merchantPattern.matcher(sms)
-            val upiMatcher = upiPattern.matcher(sms)
-            val infoMerchantMatcher = infoMerchantPattern.matcher(sms)
-            val forMerchantMatcher = forMerchantPattern.matcher(sms)
-
-            val finalMerchant = when {
-                upiMatcher.find() -> upiMatcher.group(1)
-                infoMerchantMatcher.find() -> infoMerchantMatcher.group(1)
-                forMerchantMatcher.find() -> forMerchantMatcher.group(1)
-                merchantMatcher.find() -> merchantMatcher.group(1)
-                else -> "Unknown"
-            }
+            val finalMerchant = upiPattern.matcher(sms).let { if (it.find()) it.group(1) else null } 
+                ?: infoMerchantPattern.matcher(sms).let { if (it.find()) it.group(1) else null } 
+                ?: forMerchantPattern.matcher(sms).let { if (it.find()) it.group(1) else null } 
+                ?: merchantPattern.matcher(sms).let { if (it.find()) it.group(1) else null } 
+                ?: "Unknown"
 
             val bankMatcher = bankPattern.matcher(sms)
             val bank = if (bankMatcher.find()) bankMatcher.group(1).trim() else senderAddress
