@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.myapplication.TransactionDao
 import kotlinx.coroutines.launch
 
 class TransactionViewModel(private val transactionDao: TransactionDao) : ViewModel() {
@@ -54,6 +55,12 @@ class TransactionViewModel(private val transactionDao: TransactionDao) : ViewMod
     fun updateTransactionCategory(transactionId: Int, newCategory: TransactionCategory, userDefinedCategoryName: String?) {
         viewModelScope.launch {
             transactionDao.updateCategory(transactionId, newCategory, userDefinedCategoryName)
+        }
+    }
+
+    fun delete(transaction: Transaction) {
+        viewModelScope.launch {
+            transactionDao.delete(transaction)
         }
     }
 }

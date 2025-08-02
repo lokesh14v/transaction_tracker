@@ -41,12 +41,17 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        transactionAdapter = TransactionAdapter { transaction ->
-            // Handle category click
-            currentTransactionForCategorySelection = transaction
-            val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, this)
-            dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
-        }
+        transactionAdapter = TransactionAdapter(
+            onCategoryClick = { transaction ->
+                // Handle category click
+                currentTransactionForCategorySelection = transaction
+                val dialog = CategorySelectionDialogFragment.newInstance(transaction.id, transaction.category, this)
+                dialog.show(parentFragmentManager, "CategorySelectionDialogFragment")
+            },
+            onDeleteClick = { transaction ->
+                viewModel.delete(transaction)
+            }
+        )
         binding.transactionRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = transactionAdapter
@@ -68,11 +73,13 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
             binding.totalCreditTextView.text = String.format(Locale.getDefault(), "₹ %.2f", totalCredit)
         }
 
-        // Default to last 30 days
+        // Default to current month
         val calendar = Calendar.getInstance()
-        val endDate = calendar.timeInMillis
-        calendar.add(Calendar.DAY_OF_YEAR, -30)
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
         val startDate = calendar.timeInMillis
+        calendar.add(Calendar.MONTH, 1)
+        calendar.add(Calendar.DAY_OF_MONTH, -1)
+        val endDate = calendar.timeInMillis
         viewModel.loadTransactionsByDateRange(startDate, endDate)
         updateDateRangeText(startDate, endDate)
     }

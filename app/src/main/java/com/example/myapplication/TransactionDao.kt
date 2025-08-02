@@ -1,10 +1,13 @@
-package com.example.ExpenseTracker
+package com.example.myapplication
 
 import androidx.lifecycle.LiveData
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.example.ExpenseTracker.Transaction
+import com.example.ExpenseTracker.TransactionCategory
 
 @Dao
 interface TransactionDao {
@@ -21,5 +24,12 @@ interface TransactionDao {
     fun getDistinctBanks(): LiveData<List<String>>
 
     @Query("UPDATE transactions SET category = :newCategory, userDefinedCategoryName = :userDefinedCategoryName WHERE id = :transactionId")
-    suspend fun updateCategory(transactionId: Int, newCategory: TransactionCategory, userDefinedCategoryName: String?)
+    suspend fun updateCategory(
+        transactionId: Int,
+        newCategory: TransactionCategory,
+        userDefinedCategoryName: String?
+    )
+
+    @Delete
+    suspend fun delete(transaction: Transaction)
 }

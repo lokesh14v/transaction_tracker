@@ -10,11 +10,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TransactionAdapter @JvmOverloads constructor(private val onCategoryClick: (Transaction) -> Unit = {}) : ListAdapter<Transaction, TransactionAdapter.TransactionViewHolder>(TransactionDiffCallback()) {
+class TransactionAdapter @JvmOverloads constructor(
+    private val onCategoryClick: (Transaction) -> Unit = {},
+    private val onDeleteClick: (Transaction) -> Unit = {}
+) : ListAdapter<Transaction, TransactionAdapter.TransactionViewHolder>(TransactionDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
         val binding = ItemTransactionBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return TransactionViewHolder(binding, onCategoryClick)
+        return TransactionViewHolder(binding, onCategoryClick, onDeleteClick)
     }
 
     override fun onBindViewHolder(
@@ -25,7 +28,11 @@ class TransactionAdapter @JvmOverloads constructor(private val onCategoryClick: 
         holder.bind(transaction)
     }
 
-    inner class TransactionViewHolder(private val binding: ItemTransactionBinding, private val onCategoryClick: (Transaction) -> Unit) : RecyclerView.ViewHolder(binding.root) {
+    inner class TransactionViewHolder(
+        private val binding: ItemTransactionBinding,
+        private val onCategoryClick: (Transaction) -> Unit,
+        private val onDeleteClick: (Transaction) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(transaction: Transaction) {
             val context = binding.root.context
             val amountText = String.format(Locale.getDefault(), "₹ %.2f", transaction.amount)
@@ -49,6 +56,7 @@ class TransactionAdapter @JvmOverloads constructor(private val onCategoryClick: 
             binding.smsDate.text = smsDateFormat.format(Date(transaction.smsDate))
 
             binding.transactionCategory.setOnClickListener { onCategoryClick(transaction) }
+            binding.deleteTransaction.setOnClickListener { onDeleteClick(transaction) }
         }
     }
 

@@ -99,5 +99,16 @@
             app:layout_constraintTop_toTopOf="@+id/transactionBank"
             tools:text="A/c: XX7334" />
 
+        <ImageView
+            android:id="@+id/deleteTransaction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/ic_delete"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="@string/delete_transaction" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>

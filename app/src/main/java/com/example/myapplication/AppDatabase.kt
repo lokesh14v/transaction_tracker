@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.myapplication.TransactionDao
 
 @Database(entities = [Transaction::class, UserCategoryMapping::class], version = 6, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {

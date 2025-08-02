@@ -42,18 +42,28 @@ class SmsReceiver : BroadcastReceiver() {
             }
         }
     }
-
+    fun extractBankNameWithRegexValidation(input: String): String? {     // Regex to validate the basic structure: XX-YYYYYY-Z (approx)
+        // This regex captures the middle part.
+        val formatRegex = Regex("""^[A-Z]{2,}-([A-Z0-9]+?)-[A-Z]$""") // Adjust based on exact rules for prefix/suffix
+        val matchResult = formatRegex.find(input)
+        if (matchResult != null) {
+            val potentialBankCode = matchResult.groups[1]?.value // Get the captured group
+            if (potentialBankCode != null && potentialBankCode.length > 2) {
+                return potentialBankCode.dropLast(2)
+            } else if (potentialBankCode != null && potentialBankCode.isNotEmpty()) {
+                return potentialBankCode // Or other logic for short codes
+            }
+        }
+        return null }
     private suspend fun parseSms(messageBody: String, timestamp: Long, senderAddress: String, context: Context?, userCategoryMappingDao: UserCategoryMappingDao): Transaction? {
         val amountPattern = Regex("""(?:Rs\.?|INR)\s?([\d,]+(?:\.\d{1,2})?)""")
         val merchantPattern = Pattern.compile("""at\s+([^\s]+)""")
-        val bankPattern = Pattern.compile("""(?:from|in)\s+([A-Za-z0-9\s]+?)(?:Bank|bank|BANK|Ltd|Pvt Ltd|A/c|Acct|account|card)""")
         val accountNumberPattern = Pattern.compile("""A/c no\. ([X*\d]+)""", Pattern.CASE_INSENSITIVE)
         val dateTimePattern = Pattern.compile("""(\d{2}-\d{2}-\d{2},\s*\d{2}:\d{2}:\d{2})""")
         val upiPattern = Pattern.compile("""UPI/(?:P2M|P2A)/(?:[^/]+/)*([^/]+)""", Pattern.CASE_INSENSITIVE)
 
         val amountMatcher = amountPattern.find(messageBody)
         val merchantMatcher = merchantPattern.matcher(messageBody)
-        val bankMatcher = bankPattern.matcher(messageBody)
         val accountNumberMatcher = accountNumberPattern.matcher(messageBody)
         val dateTimeMatcher = dateTimePattern.matcher(messageBody)
         val upiMatcher = upiPattern.matcher(messageBody)
@@ -81,7 +91,8 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val category = classifyTransaction(finalMerchant, messageBody, userCategoryMappingDao)
-        val bank = if (bankMatcher.find()) bankMatcher.group(1) else senderAddress
+        val extractedBankFromRegex = extractBankNameWithRegexValidation(senderAddress)
+        val bank = extractedBankFromRegex ?: senderAddress
         val accountNumber = if (accountNumberMatcher.find()) accountNumberMatcher.group(1) else null
         val dateTimeString = if (dateTimeMatcher.find()) dateTimeMatcher.group(1) else null
         val transactionDateTime = dateTimeString?.let {
