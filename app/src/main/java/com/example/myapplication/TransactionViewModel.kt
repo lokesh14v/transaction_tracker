@@ -1,7 +1,9 @@
 package com.example.ExpenseTracker
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.TransactionDao
@@ -21,41 +23,69 @@ class TransactionViewModel(private val transactionDao: TransactionDao) : ViewMod
     private val _dateRange = MutableLiveData<Pair<Long, Long>?>()
     val dateRange: LiveData<Pair<Long, Long>?> = _dateRange
 
+    private val _selectedBank = MutableLiveData<String?>()
+    val selectedBank: LiveData<String?> = _selectedBank
+
+    private var currentLiveData: LiveData<List<Transaction>>? = null
+
+    fun loadTransactions() {
+        viewModelScope.launch {
+            val currentBank = _selectedBank.value
+            val currentDateRange = _dateRange.value
+
+            val newLiveData = if (currentDateRange != null) {
+                if (currentBank == null || currentBank == "All Banks") {
+                    transactionDao.getTransactionsBetweenDates(currentDateRange.first, currentDateRange.second)
+                } else {
+                    transactionDao.getTransactionsByBankAndDateRange(currentBank, currentDateRange.first, currentDateRange.second)
+                }
+            } else {
+                if (currentBank == null || currentBank == "All Banks") {
+                    transactionDao.getAllTransactions()
+                } else {
+                    transactionDao.getTransactionsByBank(currentBank)
+                }
+            }
+
+            // Remove previous observer if it exists
+            currentLiveData?.removeObserver(transactionsObserver)
+
+            // Set new LiveData and observe it
+            currentLiveData = newLiveData
+            currentLiveData?.observeForever(transactionsObserver)
+        }
+    }
+
+    private val transactionsObserver = Observer<List<Transaction>> { transactionsList ->
+        Log.d(
+            "TransactionViewModel",
+            "loadTransactions: ${transactionsList.size} transactions loaded"
+        )
+        _transactions.postValue(transactionsList)
+        calculateTotals(transactionsList)
+    }
+
     fun setDateRange(startDate: Long, endDate: Long) {
         _dateRange.value = Pair(startDate, endDate)
+        loadTransactions() // Trigger load after setting date range
     }
 
     fun clearDateRange() {
         _dateRange.value = null
+        loadTransactions() // Trigger load after clearing date range
     }
 
-    fun loadAllTransactions(bank: String? = null) {
-        viewModelScope.launch {
-            val liveData = if (bank == null || bank == "All Banks") {
-                transactionDao.getAllTransactions()
-            } else {
-                transactionDao.getTransactionsByBank(bank)
-            }
-            liveData.observeForever { transactionsList ->
-                _transactions.postValue(transactionsList)
-                calculateTotals(transactionsList)
-            }
-        }
+    fun setSelectedBank(bank: String?) {
+        _selectedBank.value = bank
+        loadTransactions() // Trigger load after setting bank
     }
 
-    fun loadTransactionsByDateRange(startDate: Long, endDate: Long, bank: String? = null) {
-        viewModelScope.launch {
-            val liveData = if (bank == null || bank == "All Banks") {
-                transactionDao.getTransactionsBetweenDates(startDate, endDate)
-            } else {
-                transactionDao.getTransactionsByBankAndDateRange(bank, startDate, endDate)
-            }
-            liveData.observeForever { transactionsList ->
-                _transactions.postValue(transactionsList)
-                calculateTotals(transactionsList)
-            }
-        }
+    fun clearSelectedBank() {
+        _selectedBank.value = null
+        loadTransactions() // Trigger load after clearing bank
     }
+
+    // Remove loadAllTransactions and loadTransactionsByDateRange as they are now handled by loadTransactions
 
     private fun calculateTotals(transactions: List<Transaction>) {
         var spend = 0.0

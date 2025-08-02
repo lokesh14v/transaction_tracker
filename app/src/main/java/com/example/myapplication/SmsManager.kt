@@ -133,7 +133,7 @@ object SmsManager {
                 } catch (e: ParseException) {
                     null
                 }
-            }
+            } ?: timestamp
 
             val finalCategory = classifyTransaction(finalMerchant, sms, userCategoryMappingDao)
 

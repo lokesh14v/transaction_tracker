@@ -29,9 +29,7 @@ class SmsReceiver : BroadcastReceiver() {
                         val transaction = SmsManager.parseSms(messageBody, sender, smsMessage.timestampMillis, userCategoryMappingDao)
                         if (transaction != null) {
                             Log.d("SmsReceiver", "Parsed Transaction: $transaction")
-                            applicationContext
-                                ?.transactionViewModel
-                                ?.addTransaction(transaction)
+                            applicationContext?.appDatabase?.transactionDao()?.insert(transaction)
 
                             // Show Toast on the main thread
                             CoroutineScope(Dispatchers.Main).launch {

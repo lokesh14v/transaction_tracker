@@ -1,5 +1,7 @@
 package com.example.ExpenseTracker
 
+import com.example.ExpenseTracker.TransactionViewModel
+import com.example.ExpenseTracker.TransactionViewModelFactory
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -45,9 +47,7 @@ class MainActivity : AppCompatActivity() {
             }
         }.attach()
 
-        viewModel.dateRange.observe(this) { dateRange ->
-            binding.chipLast30Days.isChecked = dateRange != null
-        }
+        binding.chipLast30Days.isChecked = true
 
         binding.chipLast30Days.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
@@ -62,6 +62,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.dateRangeIcon.setOnClickListener {
+            binding.chipLast30Days.isChecked = false // Uncheck the chip when date picker is opened
+            viewModel.clearDateRange()
+            viewModel.clearSelectedBank()
             showDateRangePicker()
         }
 

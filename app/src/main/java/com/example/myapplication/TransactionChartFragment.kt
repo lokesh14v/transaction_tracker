@@ -41,8 +41,8 @@ class TransactionChartFragment : Fragment() {
         viewModel = ViewModelProvider(requireActivity()).get(TransactionViewModel::class.java)
 
         // Observe transactions
-        viewModel.transactions.observe(viewLifecycleOwner, Observer { transactions ->
-            val selectedBank = binding.bankSpinner.selectedItem?.toString()
+        viewModel.transactions.observe(viewLifecycleOwner, Observer { transactions: List<com.example.ExpenseTracker.Transaction> ->
+            val selectedBank = viewModel.selectedBank.value
             val filteredTransactions = if (selectedBank == null || selectedBank == "All Banks") {
                 transactions
             } else {
@@ -56,13 +56,18 @@ class TransactionChartFragment : Fragment() {
         })
 
         viewModel.dateRange.observe(viewLifecycleOwner) { dateRange ->
-            val selectedBank = binding.bankSpinner.selectedItem?.toString()
-            if (dateRange != null) {
-                viewModel.loadTransactionsByDateRange(dateRange.first, dateRange.second, selectedBank)
-            } else {
-                viewModel.loadAllTransactions(selectedBank)
-            }
+            // No direct action needed here, as loadTransactions() is called from ViewModel
         }
+
+        viewModel.selectedBank.observe(viewLifecycleOwner) { bank ->
+            val adapter = binding.bankSpinner.adapter as? ArrayAdapter<String>
+            val position = adapter?.getPosition(bank ?: "All Banks") ?: 0
+            binding.bankSpinner.setSelection(position)
+            // No direct action needed here, as loadTransactions() is called from ViewModel
+        }
+
+        // Initial load
+        viewModel.loadTransactions()
 
         // Populate bank spinner
         val transactionDao = AppDatabase.getDatabase(requireContext()).transactionDao()
@@ -78,12 +83,7 @@ class TransactionChartFragment : Fragment() {
         binding.bankSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedBank = parent?.getItemAtPosition(position).toString()
-                val dateRange = viewModel.dateRange.value
-                if (dateRange != null) {
-                    viewModel.loadTransactionsByDateRange(dateRange.first, dateRange.second, selectedBank)
-                } else {
-                    viewModel.loadAllTransactions(selectedBank)
-                }
+                viewModel.setSelectedBank(selectedBank)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {

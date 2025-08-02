@@ -73,13 +73,18 @@ class TransactionListFragment : Fragment(), CategorySelectionDialogFragment.Cate
 
         viewModel.dateRange.observe(viewLifecycleOwner) { dateRange ->
             if (dateRange != null) {
-                viewModel.loadTransactionsByDateRange(dateRange.first, dateRange.second)
                 updateDateRangeText(dateRange.first, dateRange.second)
             } else {
-                viewModel.loadAllTransactions()
                 binding.dateRangeTextView.text = "All Transactions"
             }
         }
+
+        viewModel.selectedBank.observe(viewLifecycleOwner) { bank ->
+            // No direct action needed here, as loadTransactions() is called from ViewModel
+        }
+
+        // Initial load
+        viewModel.loadTransactions()
     }
 
     private fun updateDateRangeText(startDate: Long, endDate: Long) {
